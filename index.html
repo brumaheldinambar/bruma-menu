@@ -76,10 +76,38 @@ const AT={
   C:{name:'fld0zNbzfOPwgADm5',type:'fldYuLHMOgU3yaogW',licor:'fldZtVwcdpRV9Eeg9',nivel:'fldZxMo7kScNyi56J',description:'fldHSGvc35DzC8GcC',ingredientes:'fldRiOjXk5XcYRr1P',tecnica:'fldf0PFlLckww4ccE',garnish:'fldGImm53A0lShEIC',cristaleria:'fldkHuVxUktLjjNdX',puntuacion:'fldPfdgilX8HvRTiP',notas:'fldb3vytDICdRjdP9'},
   M:{name:'fld8J2TKxb22tsct1',tipo:'fldinZfR2vT2Cp7S3',perfil:'fldxXuo60ARIHRW9x',nivel:'fldcHZXjVPpBx9mrB',description:'fldnM9hRGZc1xL9QY',ingredientes:'fld8XIwSUbLmA6VkZ',tecnica:'flduJLwspjsih2AqL',garnish:'fldKoK46tZo99HUVT',cristaleria:'fldNSs2hpSEV2Txlv',puntuacion:'fldRnd31lgvGGp4b3',notas:'fldnf3jnoMOBFqy2R'}
 };
+// Modo dual: dentro de Claude Cowork usa el conector MCP; en navegador
+// normal usa la API REST de Airtable con un token personal guardado en
+// localStorage (cada usuario aporta el suyo — nunca va en el código).
+const hasCowork=()=>!!(window.cowork&&window.cowork.callMcpTool);
+const TOKEN_KEY='bruma_airtable_token';
+const getToken=()=>localStorage.getItem(TOKEN_KEY)||'';
+async function rest(method,path,body){
+  const r=await fetch('https://api.airtable.com/v0/'+path,{method,headers:{'Authorization':'Bearer '+getToken(),'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+  if(r.status===401||r.status===403){localStorage.removeItem(TOKEN_KEY);S.needToken=true;throw new Error('Token de Airtable inválido o sin permisos sobre la base');}
+  if(!r.ok){let m='Airtable · error '+r.status;try{const j=await r.json();m=j.error?.message||j.error?.type||m;}catch(e){}throw new Error(m);}
+  return r.json();
+}
 const mcp=async(tool,args)=>{
-  const r=await window.cowork.callMcpTool(`${AT.MCP}__${tool}`,args);
-  if(r.isError) throw new Error(r.content?.[0]?.text||'Airtable error');
-  return r.structuredContent??JSON.parse(r.content[0].text);
+  if(hasCowork()){
+    const r=await window.cowork.callMcpTool(`${AT.MCP}__${tool}`,args);
+    if(r.isError) throw new Error(r.content?.[0]?.text||'Airtable error');
+    return r.structuredContent??JSON.parse(r.content[0].text);
+  }
+  if(tool==='list_records_for_table'){
+    let records=[],offset;
+    do{
+      const q=new URLSearchParams({returnFieldsByFieldId:'true'});
+      if(offset)q.set('offset',offset);
+      const res=await rest('GET',`${args.baseId}/${args.tableId}?`+q.toString());
+      records=records.concat(res.records||[]);offset=res.offset;
+    }while(offset);
+    return {records};
+  }
+  if(tool==='create_records_for_table')return rest('POST',`${args.baseId}/${args.tableId}`,{records:args.records,typecast:true});
+  if(tool==='update_records_for_table')return rest('PATCH',`${args.baseId}/${args.tableId}`,{records:args.records,typecast:true});
+  if(tool==='delete_records_for_table')return rest('DELETE',`${args.baseId}/${args.tableId}?`+args.recordIds.map(id=>'records[]='+encodeURIComponent(id)).join('&'));
+  throw new Error('Operación desconocida: '+tool);
 };
 
 // ─── PARSE HELPERS ────────────────────────────────────────
@@ -103,7 +131,7 @@ const S={
   fMTipo:'todos', fMPerf:'todos', fMNivel:'todos',
   showAddC:false, showAddM:false, editing:null, confirmDel:null,
   expanded:{}, form:null, loading:true, saving:false,
-  pendingNotes:{}, _toastTimer:null
+  pendingNotes:{}, _toastTimer:null, needToken:false
 };
 
 // ─── TOAST ────────────────────────────────────────────────
@@ -358,8 +386,34 @@ function buildMocktailsTab(){
   </div>`;
 }
 
+// ─── TOKEN GATE (solo modo navegador, sin Cowork) ─────────
+function buildTokenGate(){
+  return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px">
+    <div style="width:64px;margin-bottom:8px">${BRUMI_SVG}</div>
+    <h1 style="font-family:${fontT};font-size:44px;color:${C.crema};letter-spacing:0.06em;font-weight:400;margin-bottom:6px">BRUMA</h1>
+    <p style="font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:${C.ambar};margin-bottom:34px;font-weight:600">Menú de Experiencias Líquidas</p>
+    <div style="background:${C.surface};border:1px solid ${C.border};border-radius:10px;padding:30px;max-width:460px;width:100%">
+      <p style="font-family:${fontT};font-size:19px;color:${C.crema};margin-bottom:10px">Conecta tu Airtable</p>
+      <p style="font-size:14px;color:${C.cremaMid};line-height:1.65;margin-bottom:18px">Pega tu token personal de Airtable. Se guarda solo en este navegador y te da acceso al menú según tus permisos en la base.</p>
+      <label for="gate-token" style="${lSt}">Token personal</label>
+      <input id="gate-token" type="password" style="${iSt};margin-bottom:14px" placeholder="pat…" onkeydown="if(event.key==='Enter')saveToken()"/>
+      <button onclick="saveToken()" style="background:${C.ambarSolid};color:${C.crema};border:none;border-radius:6px;padding:13px 26px;font-size:14px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;min-height:48px;width:100%">Entrar</button>
+      <p style="font-size:13px;color:${C.cremaMid};line-height:1.65;margin-top:18px;padding-top:16px;border-top:1px solid ${C.border}">¿No tienes token? Créalo en <strong>airtable.com/create/tokens</strong> con los permisos <em>data.records:read</em> y <em>data.records:write</em> sobre la base del menú.</p>
+    </div>
+  </div>`;
+}
+function saveToken(){
+  const v=(document.getElementById('gate-token')?.value||'').trim();
+  if(!v){showToast('Pega tu token de Airtable',true);return;}
+  localStorage.setItem(TOKEN_KEY,v);
+  S.needToken=false;
+  loadFromAirtable();
+}
+function clearToken(){localStorage.removeItem(TOKEN_KEY);S.needToken=true;S.cocktails=[];S.mocktails=[];renderApp();}
+
 // ─── RENDER ───────────────────────────────────────────────
 function renderApp(){
+  if(S.needToken&&!hasCowork()){document.getElementById('app').innerHTML=buildTokenGate();return;}
   const divider=`<div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:28px"><div style="height:1px;width:50px;background:linear-gradient(to right,transparent,${C.ambar}66)"></div><div style="width:4px;height:4px;border-radius:50%;background:${C.ambar};opacity:.7"></div><div style="height:1px;width:50px;background:linear-gradient(to left,transparent,${C.ambar}66)"></div></div>`;
   if(S.loading){
     document.getElementById('app').innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:20px">
@@ -381,7 +435,7 @@ function renderApp(){
     ${[{key:'cocktails',label:'Cócteles',count:S.cocktails.length},{key:'mocktails',label:'Mocktails',count:S.mocktails.length}].map(t=>`<button onclick="switchTab('${t.key}')" role="tab" aria-selected="${S.tab===t.key}" style="background:none;border:none;border-bottom:${S.tab===t.key?`2px solid ${C.ambar}`:'2px solid transparent'};color:${S.tab===t.key?C.crema:C.cremaMid};padding:20px 36px;font-size:13px;font-weight:${S.tab===t.key?700:400};letter-spacing:0.14em;text-transform:uppercase;transition:all 0.2s;margin-bottom:-1px;min-height:60px">${t.label}<span style="margin-left:8px;font-size:11px;color:${S.tab===t.key?C.ambar:C.cremaMid+'66'};font-weight:400">${t.count}</span></button>`).join('')}
   </nav>`;
   const main=`<main style="max-width:880px;margin:0 auto;padding:0 24px">${S.tab==='cocktails'?buildCocktailsTab():buildMocktailsTab()}</main>`;
-  const footer=`<footer style="max-width:880px;margin:72px auto 0;padding:0 24px"><div style="border-top:1px solid ${C.border};padding-top:30px;text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:14px"><div style="height:1px;width:36px;background:linear-gradient(to right,transparent,${C.ambar}55)"></div><div style="width:3px;height:3px;border-radius:50%;background:${C.ambar};opacity:.5"></div><div style="height:1px;width:36px;background:linear-gradient(to left,transparent,${C.ambar}55)"></div></div><p style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:${C.cremaMid};margin-bottom:24px">Bruma · Coctelería · Mocktails · Experiencias</p><div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;padding-top:20px;border-top:1px solid ${C.border}">${NIVELES.map(n=>`<div style="display:flex;align-items:center;gap:8px">${nivelBadge(n.value)}<span style="font-size:12px;color:${C.cremaMid}">${esc(n.desc)}</span></div>`).join('')}</div></div></footer>`;
+  const footer=`<footer style="max-width:880px;margin:72px auto 0;padding:0 24px"><div style="border-top:1px solid ${C.border};padding-top:30px;text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:14px"><div style="height:1px;width:36px;background:linear-gradient(to right,transparent,${C.ambar}55)"></div><div style="width:3px;height:3px;border-radius:50%;background:${C.ambar};opacity:.5"></div><div style="height:1px;width:36px;background:linear-gradient(to left,transparent,${C.ambar}55)"></div></div><p style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:${C.cremaMid};margin-bottom:24px">Bruma · Coctelería · Mocktails · Experiencias</p>${!hasCowork()?`<button onclick="clearToken()" style="background:transparent;border:none;color:${C.cremaMid};font-size:11px;letter-spacing:0.1em;text-transform:uppercase;text-decoration:underline;margin-bottom:20px">Cambiar token de Airtable</button>`:''}<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;padding-top:20px;border-top:1px solid ${C.border}">${NIVELES.map(n=>`<div style="display:flex;align-items:center;gap:8px">${nivelBadge(n.value)}<span style="font-size:12px;color:${C.cremaMid}">${esc(n.desc)}</span></div>`).join('')}</div></div></footer>`;
   document.getElementById('app').innerHTML=header+tabs+main+footer+(S.editing?buildEditModal():'')+(S.confirmDel?buildConfirmModal():'');
 }
 
@@ -492,7 +546,8 @@ async function loadFromAirtable(){
 }
 
 // ─── INIT ─────────────────────────────────────────────────
-loadFromAirtable();
+if(!hasCowork()&&!getToken()){S.loading=false;S.needToken=true;renderApp();}
+else loadFromAirtable();
 </script>
 </body>
 </html>
