@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Bruma Menu",
+  "schemaVersion": 1,
+  "description": "BRUMA — Menú de Experiencias Líquidas, conectado a Airtable en tiempo real. CRUD completo de cócteles y mocktails. Licor como multiselect. Filtros, fichas expandibles, formulario con validación.",
+  "mcpTools": [
+    "mcp__ad5c81d3-6e90-4ba0-a816-000541d1a766__list_records_for_table",
+    "mcp__ad5c81d3-6e90-4ba0-a816-000541d1a766__create_records_for_table",
+    "mcp__ad5c81d3-6e90-4ba0-a816-000541d1a766__update_records_for_table",
+    "mcp__ad5c81d3-6e90-4ba0-a816-000541d1a766__delete_records_for_table"
+  ],
+  "mcpServerNames": [
+    "Airtable",
+    "Airtable",
+    "Airtable",
+    "Airtable"
+  ]
+}
+</script>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BRUMA — Menú</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Croissant+One&display=swap" rel="stylesheet">
+<link href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700&display=swap" rel="stylesheet">
+<style>
+:root { color-scheme: light; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Cabinet Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif; background:#FDFBF6; color:#0C1C17; min-height:100vh; padding-bottom:80px; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+@keyframes pop    { 0%{transform:scale(.9);opacity:0} 60%{transform:scale(1.05)} 100%{transform:scale(1);opacity:1} }
+@keyframes spin   { to{transform:rotate(360deg)} }
+::-webkit-scrollbar{width:3px} ::-webkit-scrollbar-thumb{background:#DECBB0;border-radius:2px}
+:focus-visible{outline:3px solid #C87A2A;outline-offset:3px}
+button{cursor:pointer;font-family:inherit}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ─── BRUMI (logo · recolor bosque para modo HALO) ─────────
+const BRUMI_SVG=`<svg style="width:100%;height:auto;display:block" viewBox="0 0 300 319" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M141.416 1.34359C130.277 3.12164 130.672 3.7682 142.6 3.44492C172.145 2.55589 202.243 10.7187 224.283 25.5897C227.206 27.5294 230.208 29.8731 230.998 30.7622C231.788 31.6512 232.815 32.3786 233.289 32.3786C234.553 32.3786 226.89 24.7006 221.598 20.5788C200.031 3.84902 170.486 -3.18234 141.416 1.34359Z" fill="#1C3329"/><path d="M219.149 10.6378C239.056 21.0636 252.88 34.4798 261.175 51.2904C262.676 54.2808 264.019 56.6246 264.256 56.3821C265.125 55.5739 260.148 42.4002 257.304 37.8743C249.563 25.5896 238.503 16.9418 223.02 10.9611C216.7 8.53651 214.804 8.37487 219.149 10.6378Z" fill="#1C3329"/><path d="M118.822 13.7899C92.2792 18.7199 70.0811 29.5498 51.6747 46.5221C47.8829 50.0782 48.9098 49.5933 57.2045 43.855C69.4491 35.4497 92.1212 25.428 107.368 21.5486C134.622 14.6789 163.614 14.5173 183.995 21.0637C190.078 22.9226 190.552 23.0034 187.945 21.4678C185.417 19.9322 171.671 15.4871 165.036 14.0323C161.955 13.3858 153.344 12.7392 143.706 12.5776C129.961 12.2543 126.169 12.4159 118.822 13.7899Z" fill="#1C3329"/><path d="M260.938 35.1265C266.784 42.4811 271.129 52.0179 274.447 64.7067C276.184 71.4148 276.184 71.4956 276.816 68.5861C277.685 63.9793 275.947 55.2507 272.946 48.9467C270.023 43.0468 263.861 35.3689 259.674 32.2169C257.541 30.6813 257.699 31.0046 260.938 35.1265Z" fill="#1C3329"/><path d="M100.653 33.5909C57.0465 45.3906 23.3937 73.3545 8.62125 109.885C7.3573 113.037 6.48833 115.623 6.64632 115.623C6.80432 115.623 8.54225 112.795 10.5962 109.4C17.7059 97.2773 23.3937 90.0034 35.0853 78.042C54.8345 57.837 77.1907 43.451 101.759 35.0456C106.341 33.5101 110.291 32.0553 110.449 31.8937C111.317 31.0855 107.21 31.8128 100.653 33.5909Z" fill="#1C3329"/><path d="M281.161 64.3834C281.477 67.0505 281.556 70.9299 281.398 73.1928C281.161 76.9106 281.24 77.0722 282.346 75.6983C284.795 72.3846 284.479 65.1108 281.714 61.1506C280.845 59.8575 280.766 60.3424 281.161 64.3834Z" fill="#1C3329"/><path d="M44.0121 82.0023C21.4189 101.722 4.67153 132.03 1.11666 159.751C-0.147293 169.611 -0.384284 181.735 0.642678 187.149C1.11666 189.897 1.27466 189.251 1.74864 182.543C4.03955 147.871 21.6559 107.38 44.8811 83.053C48.1199 79.6585 50.6478 76.8298 50.4109 76.8298C50.1739 76.8298 47.251 79.1736 44.0121 82.0023Z" fill="#1C3329"/><path d="M284.637 77.9612C284.4 78.6886 284.4 80.6283 284.716 82.3255L285.269 85.3159L282.583 82.8104C278.791 79.1735 275.474 77.6379 271.129 77.6379C264.177 77.7188 260.622 81.5173 260.622 89.0336C260.622 94.2869 263.071 99.8635 267.732 105.359C269.47 107.38 270.892 109.158 270.892 109.4C270.892 109.643 269.549 109.481 267.969 109.077C259.121 106.976 248.378 109.562 242.453 115.3C238.108 119.422 236.528 123.544 237.081 129.201C237.555 134.293 239.846 137.607 244.428 139.87C246.877 141.082 247.725 141.157 248.936 141.56C250.851 142.198 251.063 142.26 252.128 142.198C254.893 142.036 255.566 143.911 255.724 143.022C256.119 140.759 253.67 139.061 249.957 139.061C244.191 139.061 240.083 133.808 240.083 126.453C240.162 118.371 251.853 109.966 262.992 109.966C269.865 109.966 276.5 113.603 278.396 118.371C280.608 123.867 280.608 130.252 278.396 125.079C277.448 122.978 274.289 122.332 272.156 123.948C270.102 125.484 269.47 133.161 271.208 135.424C272.156 136.718 272.393 136.798 272.472 135.748C272.472 134.616 274.763 132.111 278.317 129.282C279.739 128.231 279.818 128.312 279.423 133.081C278.949 138.576 276.185 144.8 272.709 148.113C271.05 149.73 269.549 150.295 266.31 150.538C264.098 150.619 262.202 150.699 262.202 150.538C262.202 150.457 262.755 149.487 263.387 148.517C266.863 143.102 267.653 130.979 264.967 124.918L263.861 122.493L264.414 125.726C266.784 139.385 261.333 150.861 251.063 153.932C238.424 157.812 218.912 159.105 208.089 156.923C201.295 155.549 190.315 151.912 190.315 151.104C190.315 150.699 190.789 150.621 191.263 150.376C191.737 150.131 191.88 149.808 191.489 149.849C190.868 149.916 187.155 151.912 187.155 152.72C187.155 153.043 187.629 153.367 188.182 153.447C188.656 153.447 192.369 154.821 196.397 156.357C206.351 160.317 213.54 161.772 224.283 161.853C234.158 161.933 242.69 160.56 253.591 157.246C257.225 156.114 262.281 154.902 264.809 154.498C269.075 153.932 269.312 153.932 269.312 155.63C269.312 158.781 265.125 166.136 260.622 170.581C255.724 175.511 249.089 179.471 242.216 181.492C239.688 182.219 237.792 183.028 237.95 183.189C238.74 184.078 251.142 180.845 255.566 178.663C264.256 174.38 272.393 163.712 273.815 154.821C274.131 153.043 275.632 149.972 277.369 147.628C282.109 141.163 284.4 131.141 282.899 122.897C282.425 120.473 282.188 118.371 282.267 118.291C282.346 118.129 283.926 119.341 285.743 120.877C290.325 124.918 293.88 132.677 294.433 139.708C295.144 149.891 289.693 165.813 281.477 177.613C272.472 190.544 262.676 199.111 238.819 215.275C218.991 228.691 217.411 229.903 208.958 238.309C201.848 245.421 196.792 252.937 193.396 261.262C189.999 269.667 190.631 270.475 194.502 262.878C198.609 254.634 205.166 246.633 213.54 239.44C221.756 232.328 222.625 231.843 219.307 236.288C208.247 251.159 203.27 266.757 203.902 284.457C204.218 292.216 204.692 295.125 206.746 301.348C209.037 308.137 214.725 319.695 215.436 318.967C215.594 318.806 215.12 317.512 214.488 316.219C212.197 311.693 209.353 299.974 208.484 291.731C205.64 262.797 219.386 234.995 245.771 216.568C271.603 198.626 282.899 186.988 291.431 169.773C302.175 148.032 302.886 120.149 293.169 97.4389C291.668 93.8828 289.614 88.9528 288.587 86.5282C287.56 84.1036 286.691 81.1132 286.691 79.9009C286.691 77.3955 285.348 76.1024 284.637 77.9612ZM277.29 82.4063C281.635 85.2351 283.452 87.3364 287.007 93.3171C291.51 100.995 294.67 112.633 295.697 125.322L296.25 131.383L294.512 128.151C291.589 122.574 288.508 119.18 282.82 115.3C279.818 113.199 276.816 110.855 276.106 110.047C274.921 108.673 275 108.592 277.211 108.592C279.66 108.592 283.531 106.248 284.163 104.389C284.321 103.824 283.61 104.309 282.425 105.44C279.66 108.35 274.289 108.43 271.682 105.521C269.549 103.258 269.707 103.177 273.183 104.389C276.343 105.521 279.265 104.794 281.635 102.126C282.978 100.672 283.768 100.268 284.479 100.833C287.639 103.339 288.113 102.207 285.111 99.5402C279.028 94.0445 274.763 93.4787 269.628 97.4389C266.705 99.7827 265.757 99.2978 267.337 96.2266C268.917 93.0746 271.919 91.3774 275.79 91.3774C278.475 91.2966 278.87 91.1349 277.843 90.4884C275.711 89.2761 270.576 90.9733 267.732 93.8828L265.362 96.3882L264.177 93.4787C262.044 88.2254 262.992 83.3762 266.705 81.3557C270.102 79.4968 273.341 79.8201 277.29 82.4063Z" fill="#1C3329"/><path d="M279.581 91.7006C279.581 91.8623 280.529 92.6704 281.793 93.3978L283.926 94.8526L282.425 93.1554C281.082 91.539 279.581 90.8116 279.581 91.7006Z" fill="#1C3329"/><path d="M172.935 80.0625C144.891 87.7404 109.58 121.927 91.8843 158.458C87.3025 167.914 81.2197 184.886 81.3777 187.958C81.3777 188.847 82.2467 187.149 83.2737 184.24C84.2216 181.33 87.0655 174.784 89.5144 169.773C106.499 135.344 136.044 102.126 161.955 88.387C181.704 77.9612 202.401 80.5474 208.958 94.2869C213.066 102.935 210.222 111.421 199.715 121.685C192.211 129.04 187.392 131.464 166.221 138.738C138.651 148.194 122.693 157.327 109.343 171.47C98.4411 183.028 93.2273 191.675 89.2774 204.849C86.8285 213.093 87.3025 213.901 90.2254 206.465C96.4662 190.786 112.029 171.955 127.512 161.529C138.256 154.175 152.633 147.305 168.196 141.89C175.384 139.385 184.943 135.505 189.525 133.242C196.397 129.848 198.767 128.151 203.349 123.382C212.592 113.765 215.515 105.278 212.829 95.7416C211.091 89.5185 205.324 83.5378 198.53 80.8707C191.816 78.2036 180.835 77.8803 172.935 80.0625Z" fill="#1C3329"/><path d="M177.201 97.0348C174.594 98.3279 171.276 100.753 169.775 102.369C166.616 105.763 167.722 105.359 173.172 100.914C176.49 98.2471 180.361 96.6307 186.76 95.1759C187.629 94.9335 186.918 94.7719 185.101 94.691C182.968 94.6102 180.282 95.4184 177.201 97.0348Z" fill="#1C3329"/><path d="M191.5 95.3375C191.737 95.8225 192.369 96.2266 192.764 96.2266C193.158 96.2266 194.975 97.1964 196.871 98.3279C199.557 100.025 199.873 100.106 198.609 98.8128C196.871 96.954 190.631 93.9636 191.5 95.3375Z" fill="#1C3329"/><path d="M183.363 101.884C181.941 102.207 178.702 103.824 176.253 105.359C173.725 106.976 168.985 109.562 165.747 111.098C159.427 114.088 159.901 114.734 167.09 112.795C171.276 111.663 171.75 111.744 174.041 113.118C180.835 117.402 189.209 116.917 194.896 111.987C197.582 109.643 198.688 109.158 201.848 109.158C205.087 109.158 206.272 108.269 203.507 107.865C202.954 107.784 200.742 106.572 198.609 105.198C192.685 101.318 188.893 100.51 183.363 101.884Z" fill="#1C3329"/><path d="M196.16 116.512C195.924 116.997 193.791 118.29 191.579 119.341C184.943 122.493 176.49 121.847 172.382 117.886C171.355 116.917 170.565 116.512 170.565 117.078C170.565 118.614 174.989 121.2 179.176 122.251C184.311 123.463 189.841 122.251 194.739 118.856C196.634 117.482 198.214 116.189 198.214 116.027C198.214 115.219 196.713 115.623 196.16 116.512Z" fill="#1C3329"/><path d="M250.273 125.241C249.01 126.534 247.983 128.474 247.983 129.525C247.983 136.475 258.568 138.011 260.148 131.303C260.859 128.393 259.437 124.918 256.988 123.786C253.986 122.412 252.801 122.655 250.273 125.241Z" fill="#1C3329"/><path d="M19.8389 143.345C9.88525 167.672 8.22631 196.363 15.415 220.043C17.311 226.428 25.1317 244.451 25.7637 243.885C25.8427 243.724 25.1317 241.056 24.1047 237.985C21.6558 230.954 19.3649 221.74 17.548 211.799C16.442 205.819 16.205 199.919 16.205 184.725C16.205 164.358 16.995 157.892 21.2608 143.102C22.1298 140.274 22.6828 137.849 22.5248 137.687C22.3668 137.526 21.1818 140.112 19.8389 143.345Z" fill="#1C3329"/><path d="M28.0546 204.93C29.0816 219.316 33.8214 237.581 39.5882 249.3C44.328 258.999 50.8058 267.97 58.7845 276.133C68.1062 285.589 72.925 289.064 65.9732 281.224C61.2334 275.809 50.4108 259.726 45.592 250.593C39.1142 238.47 33.0315 222.064 29.5556 206.95L27.5807 198.464L28.0546 204.93Z" fill="#1C3329"/><path d="M57.5995 247.199C57.5995 247.684 60.3644 252.371 63.7613 257.625C77.5068 278.88 91.2523 290.761 113.213 300.298C123.72 304.904 125.379 304.904 117.005 300.298C97.888 289.791 73.8729 269.02 62.4183 253.179C59.8114 249.462 57.5995 246.795 57.5995 247.199Z" fill="#1C3329"/><path d="M194.681 106.808C194.681 109.449 192.537 111.59 189.894 111.59C187.25 111.59 185.106 109.449 185.106 106.808C185.106 104.166 187.25 102.025 189.894 102.025C192.537 102.025 194.681 104.166 194.681 106.808Z" fill="#FDFBF6"/><path d="M280.851 99.6339C280.851 101.835 279.065 103.619 276.862 103.619C274.658 103.619 272.872 101.835 272.872 99.6339C272.872 97.4328 274.658 95.6485 276.862 95.6485C279.065 95.6485 280.851 97.4328 280.851 99.6339Z" fill="#FDFBF6"/></svg>`;
+
+// ─── PALETTE ──────────────────────────────────────────────
+// Tokens oficiales BRUMA · Foundations — modo HALO (light)
+const C={bg:'#FDFBF6',surface:'#F9F2E7',surfaceAlt:'#F5E9DA',crema:'#0C1C17',cremaMid:'#635643',ambar:'#C87A2A',ambarSolid:'#D88E3F',verde:'#5E7256',border:'#ECDCC6',halobg:'#EFF2EB',haloFg:'#4A5A44',ambarBg:'#FCF4E8',ambarFg:'#A05E22',pruebaBg:'#F5E9DA',pruebaFg:'#8A765A',deleteBg:'#FBEEE8',deleteFg:'#934026'};
+const font='\'Cabinet Grotesk\',system-ui,-apple-system,\'Segoe UI\',sans-serif';
+const fontT='\'Croissant One\',Georgia,\'Times New Roman\',serif';
+
+// ─── CONSTANTS ────────────────────────────────────────────
+const NIVELES=[
+  {value:'halo',  label:'Halo',      desc:'Entrada curada — accesible y ligero',         bg:C.halobg, fg:C.haloFg},
+  {value:'ambar', label:'Ámbar',     desc:'Experiencia expandida — ritual y profundidad', bg:C.ambarBg,fg:C.ambarFg},
+  {value:'prueba',label:'En prueba', desc:'En desarrollo — no disponible al público',     bg:C.pruebaBg,fg:C.pruebaFg}
+];
+const nivelMeta=v=>NIVELES.find(n=>n.value===v)||NIVELES[0];
+const TECNICAS=['Shake','Dry shake','Double shake','Stirred','Build','Muddled','Throw','Blend','Doble colado','Single strain','Stir'];
+const CRISTALERIAS=['Copa Nick & Nora','Vaso Old Fashioned','Copa cocktail','Copa coupe','Copa margarita baja','Copa balón','Copa wine','Highball','Lowball','Jarra','Taza','Shot','Copa Spritz'];
+const licorTags=['gin','whisky','ron','mezcal','vodka','tequila','pisco','brandy'];
+const tipoTags=['autor','clasico'];
+const mTipoTags=['botánico','frutal','especiado'];
+const mPerfilTags=['fresco','dulce','cálido','herbal','herbáceo','amargo','floral','amaderado'];
+const nivelTags=NIVELES.map(n=>n.value);
+function getMultiOptions(field){if(field==='tecnica')return TECNICAS;if(field==='licor')return licorTags;return [];}
+
+// ─── AIRTABLE CONFIG ──────────────────────────────────────
+const AT={
+  base:'appNSuGdVFQa9QtDE',
+  CT:'tbltO2EsJkbXaPDRB',
+  MT:'tblDB1EC9QYCtDrvi',
+  MCP:'mcp__ad5c81d3-6e90-4ba0-a816-000541d1a766',
+  C:{name:'fld0zNbzfOPwgADm5',type:'fldYuLHMOgU3yaogW',licor:'fldZtVwcdpRV9Eeg9',nivel:'fldZxMo7kScNyi56J',description:'fldHSGvc35DzC8GcC',ingredientes:'fldRiOjXk5XcYRr1P',tecnica:'fldf0PFlLckww4ccE',garnish:'fldGImm53A0lShEIC',cristaleria:'fldkHuVxUktLjjNdX',puntuacion:'fldPfdgilX8HvRTiP',notas:'fldb3vytDICdRjdP9'},
+  M:{name:'fld8J2TKxb22tsct1',tipo:'fldinZfR2vT2Cp7S3',perfil:'fldxXuo60ARIHRW9x',nivel:'fldcHZXjVPpBx9mrB',description:'fldnM9hRGZc1xL9QY',ingredientes:'fld8XIwSUbLmA6VkZ',tecnica:'flduJLwspjsih2AqL',garnish:'fldKoK46tZo99HUVT',cristaleria:'fldNSs2hpSEV2Txlv',puntuacion:'fldRnd31lgvGGp4b3',notas:'fldnf3jnoMOBFqy2R'}
+};
+const mcp=async(tool,args)=>{
+  const r=await window.cowork.callMcpTool(`${AT.MCP}__${tool}`,args);
+  if(r.isError) throw new Error(r.content?.[0]?.text||'Airtable error');
+  return r.structuredContent??JSON.parse(r.content[0].text);
+};
+
+// ─── PARSE HELPERS ────────────────────────────────────────
+const selVal=v=>v?.name??v??'';
+const multiVal=v=>Array.isArray(v)?v.map(x=>x?.name??x):(v?[selVal(v)]:[]);
+function parseCocktail(r){
+  const f=r.cellValuesByFieldId||r.fields||{};
+  return {_recId:r.id,id:r.id,name:f[AT.C.name]||'',type:selVal(f[AT.C.type])||'clasico',licor:multiVal(f[AT.C.licor]),nivel:selVal(f[AT.C.nivel])||'halo',description:f[AT.C.description]||'',ingredientes:(f[AT.C.ingredientes]||'').split('\n').filter(Boolean),tecnica:multiVal(f[AT.C.tecnica]),garnish:f[AT.C.garnish]||'',cristaleria:selVal(f[AT.C.cristaleria])||'',puntuacion:f[AT.C.puntuacion]||0,notas:f[AT.C.notas]||''};
+}
+function parseMocktail(r){
+  const f=r.cellValuesByFieldId||r.fields||{};
+  return {_recId:r.id,id:r.id,name:f[AT.M.name]||'',tipo:selVal(f[AT.M.tipo])||'botánico',perfil:selVal(f[AT.M.perfil])||'fresco',nivel:selVal(f[AT.M.nivel])||'halo',description:f[AT.M.description]||'',ingredientes:(f[AT.M.ingredientes]||'').split('\n').filter(Boolean),tecnica:multiVal(f[AT.M.tecnica]),garnish:f[AT.M.garnish]||'',cristaleria:selVal(f[AT.M.cristaleria])||'',puntuacion:f[AT.M.puntuacion]||0,notas:f[AT.M.notas]||''};
+}
+function cocktailFields(d){return {[AT.C.name]:d.name,[AT.C.type]:d.type,[AT.C.licor]:d.licor||[],[AT.C.nivel]:d.nivel,[AT.C.description]:d.description,[AT.C.ingredientes]:d.ingredientes.join('\n'),[AT.C.tecnica]:d.tecnica||[],[AT.C.garnish]:d.garnish,[AT.C.cristaleria]:d.cristaleria,[AT.C.puntuacion]:d.puntuacion||null,[AT.C.notas]:d.notas||''};}
+function mocktailFields(d){return {[AT.M.name]:d.name,[AT.M.tipo]:d.tipo,[AT.M.perfil]:d.perfil,[AT.M.nivel]:d.nivel,[AT.M.description]:d.description,[AT.M.ingredientes]:d.ingredientes.join('\n'),[AT.M.tecnica]:d.tecnica||[],[AT.M.garnish]:d.garnish,[AT.M.cristaleria]:d.cristaleria,[AT.M.puntuacion]:d.puntuacion||null,[AT.M.notas]:d.notas||''};}
+
+// ─── STATE ────────────────────────────────────────────────
+const S={
+  tab:'cocktails', cocktails:[], mocktails:[],
+  fTipo:'todos', fLicor:[], fNivel:'todos',
+  fMTipo:'todos', fMPerf:'todos', fMNivel:'todos',
+  showAddC:false, showAddM:false, editing:null, confirmDel:null,
+  expanded:{}, form:null, loading:true, saving:false,
+  pendingNotes:{}, _toastTimer:null
+};
+
+// ─── TOAST ────────────────────────────────────────────────
+function showToast(msg,isError=false){
+  if(S._toastTimer)clearTimeout(S._toastTimer);
+  let el=document.getElementById('bruma-toast');
+  if(!el){el=document.createElement('div');el.id='bruma-toast';document.body.appendChild(el);}
+  el.innerHTML=`<div style="background:${isError?C.deleteBg:C.surface};border:1px solid ${isError?'#DCA086':C.ambar+'55'};border-radius:8px;padding:10px 18px;font-size:12px;color:${isError?C.deleteFg:C.ambar};font-family:${font};letter-spacing:0.1em;position:fixed;bottom:24px;right:24px;z-index:600;animation:pop 0.3s ease">${msg}</div>`;
+  S._toastTimer=setTimeout(()=>{el.innerHTML='';},2800);
+}
+
+// ─── HTML ESCAPE ──────────────────────────────────────────
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+// ─── FILTERS ─────────────────────────────────────────────
+function filteredC(){
+  return S.cocktails.filter(ct=>{
+    if(S.fTipo!=='todos'&&ct.type!==S.fTipo)return false;
+    if(S.fNivel!=='todos'&&ct.nivel!==S.fNivel)return false;
+    if(S.fLicor.length&&!S.fLicor.some(l=>(ct.licor||[]).includes(l)))return false;
+    return true;
+  });
+}
+function filteredM(){
+  return S.mocktails.filter(m=>{
+    if(S.fMTipo!=='todos'&&m.tipo!==S.fMTipo)return false;
+    if(S.fMPerf!=='todos'&&m.perfil!==S.fMPerf)return false;
+    if(S.fMNivel!=='todos'&&m.nivel!==S.fMNivel)return false;
+    return true;
+  });
+}
+
+// ─── SHARED STYLES ───────────────────────────────────────
+const iSt=`background:${C.surface};border:1px solid ${C.border};border-radius:6px;color:${C.crema};padding:10px 13px;font-size:15px;font-family:${font};width:100%;box-sizing:border-box;outline:none`;
+const lSt=`font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${C.ambar};font-weight:700;margin-bottom:5px;display:block`;
+
+// ─── FILTER ROWS ─────────────────────────────────────────
+// Radio filter (single select + Todos)
+function radioRow(label,color,tags,labels,active,key){
+  const fg=color==='amber'?C.ambar:C.verde;
+  const allT=['todos',...tags];
+  const allL=['Todos',...(labels||tags.map(t=>t.charAt(0).toUpperCase()+t.slice(1)))];
+  const btns=allT.map((t,i)=>{
+    const isA=active===t;
+    const bg=isA?(color==='amber'?C.ambarBg:C.halobg):'transparent';
+    const col=isA?fg:C.cremaMid;
+    const bdr=isA?fg:C.border;
+    return `<button onclick="setFilter('${key}','${esc(t)}')" style="padding:6px 14px;border-radius:999px;border:1.5px solid ${bdr};background:${bg};color:${col};font-size:12px;letter-spacing:0.08em;text-transform:uppercase;font-weight:${isA?700:400};min-height:36px;transition:all 0.18s">${esc(allL[i])}</button>`;
+  }).join('');
+  return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px"><span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${fg};font-weight:700;min-width:68px">${label}</span><div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div></div>`;
+}
+// Multi-select filter (checkboxes)
+function filterRow(label,color,tags,labels,active,key){
+  const fg=color==='amber'?C.ambar:C.verde;
+  const btns=tags.map((t,i)=>tagBtn(labels?labels[i]:t.charAt(0).toUpperCase()+t.slice(1),active.includes(t),color,`toggleFilter('${key}','${esc(t)}')`)).join('');
+  return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px"><span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${fg};font-weight:700;min-width:68px">${label}</span><div style="display:flex;gap:6px;flex-wrap:wrap">${btns}</div></div>`;
+}
+function tagBtn(label,active,color,onclick){const fg=color==='amber'?C.ambar:C.verde;return `<button onclick="${onclick}" style="padding:6px 14px;border-radius:999px;border:1.5px solid ${active?fg:C.border};background:${active?(color==='amber'?C.ambarBg:C.halobg):'transparent'};color:${active?fg:C.cremaMid};font-size:12px;letter-spacing:0.08em;text-transform:uppercase;font-weight:${active?700:400};min-height:36px;transition:all 0.18s">${esc(label)}</button>`;}
+function setFilter(key,val){S[key]=val;renderApp();}
+
+// ─── BADGE & TAG ─────────────────────────────────────────
+function nivelBadge(nivel){const m=nivelMeta(nivel);return `<span title="${esc(m.desc)}" style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700;background:${m.bg};color:${m.fg};border:1px solid ${m.fg}33;border-radius:4px;padding:2px 8px;white-space:nowrap">${m.label}</span>`;}
+
+// ─── STAR RATING ─────────────────────────────────────────
+function buildStarsHTML(id,isMocktail,rating){
+  return Array.from({length:5},(_,i)=>{
+    const filled=i<(rating||0);
+    return `<button onclick="event.stopPropagation();rateD('${esc(id)}',${isMocktail},${i+1})" title="${i+1} estrella${i>0?'s':''}" style="background:none;border:none;padding:1px 2px;font-size:20px;color:${filled?C.ambarSolid:'#ECDCC6'};cursor:pointer;line-height:1;transition:color 0.15s">★</button>`;
+  }).join('');
+}
+async function rateD(id,isMocktail,newRating){
+  const arr=isMocktail?S.mocktails:S.cocktails;
+  const drink=arr.find(d=>d.id===id);
+  if(!drink)return;
+  const rating=drink.puntuacion===newRating?0:newRating;
+  drink.puntuacion=rating;
+  const el=document.getElementById(`stars-${id}`);
+  if(el)el.innerHTML=buildStarsHTML(id,isMocktail,rating);
+  try{
+    const tbl=isMocktail?AT.MT:AT.CT;
+    const fld=isMocktail?AT.M.puntuacion:AT.C.puntuacion;
+    await mcp('update_records_for_table',{baseId:AT.base,tableId:tbl,records:[{id:drink._recId,fields:{[fld]:rating||null}}]});
+    showToast(rating?`✦ ${rating}★`:'Puntuación eliminada');
+  }catch(err){showToast('Error: '+err.message,true);}
+}
+
+// ─── NOTES ────────────────────────────────────────────────
+async function saveNotes(id,isMocktail){
+  const arr=isMocktail?S.mocktails:S.cocktails;
+  const drink=arr.find(d=>d.id===id);
+  if(!drink)return;
+  const text=S.pendingNotes[id]!==undefined?S.pendingNotes[id]:drink.notas;
+  const btn=document.getElementById(`notes-btn-${id}`);
+  if(btn){btn.textContent='Guardando…';btn.disabled=true;}
+  try{
+    const tbl=isMocktail?AT.MT:AT.CT;
+    const fld=isMocktail?AT.M.notas:AT.C.notas;
+    await mcp('update_records_for_table',{baseId:AT.base,tableId:tbl,records:[{id:drink._recId,fields:{[fld]:text}}]});
+    drink.notas=text;
+    delete S.pendingNotes[id];
+    if(btn){btn.textContent='Guardar nota';btn.disabled=false;}
+    showToast('✦ Nota guardada');
+  }catch(err){
+    if(btn){btn.textContent='Guardar nota';btn.disabled=false;}
+    showToast('Error: '+err.message,true);
+  }
+}
+
+// ─── DRINK CARD ───────────────────────────────────────────
+function drinkCard(drink,isMocktail){
+  const isExp=!!S.expanded[drink.id];
+  const tecnicas=Array.isArray(drink.tecnica)?drink.tecnica:[drink.tecnica].filter(Boolean);
+  const licores=Array.isArray(drink.licor)?drink.licor:(drink.licor?[drink.licor]:[]);
+  const typePart=isMocktail
+    ?`<span style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;color:${C.verde};border:1px solid ${C.verde}44;border-radius:3px;padding:2px 8px">${esc(drink.tipo)}</span><span style="font-size:10px;color:${C.cremaMid};letter-spacing:0.08em;text-transform:uppercase">${esc(drink.perfil)}</span>`
+    :`<span style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;color:${C.ambar};border:1px solid ${C.ambar}44;border-radius:3px;padding:2px 8px">${drink.type==='autor'?'De autor':'Clásico'}</span>${licores.map(l=>`<span style="font-size:10px;color:${C.cremaMid};letter-spacing:0.08em;text-transform:uppercase">${esc(l)}</span>`).join('')}`;
+  const notesVal=S.pendingNotes[drink.id]!==undefined?S.pendingNotes[drink.id]:(drink.notas||'');
+  return `<div id="card-${drink.id}" style="border-bottom:1px solid ${C.border};padding:24px 0">
+    <div onclick="toggleCard('${drink.id}')" onkeydown="if(event.key==='Enter')toggleCard('${drink.id}')" role="button" tabindex="0" style="display:flex;justify-content:space-between;align-items:flex-start;cursor:pointer;gap:12px">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+          <span style="font-family:${fontT};font-size:22px;color:${C.crema};letter-spacing:0.01em;line-height:1.2">${esc(drink.name)}</span>
+          ${nivelBadge(drink.nivel)}${typePart}
+        </div>
+        ${drink.description?`<p style="margin:0;font-size:15px;color:${C.cremaMid};line-height:1.6">${esc(drink.description)}</p>`:''}
+      </div>
+      <div id="card-icon-${drink.id}" style="font-size:20px;color:${C.ambar};transform:rotate(${isExp?45:0}deg);transition:transform 0.25s;line-height:1;width:24px;text-align:center;flex-shrink:0;margin-top:4px">+</div>
+    </div>
+    <div id="card-detail-${drink.id}" style="display:${isExp?'block':'none'};margin-top:22px;animation:fadeIn 0.2s ease">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px 30px;margin-bottom:22px">
+        <div>
+          <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${C.ambar};margin-bottom:8px;font-weight:700">Ingredientes</div>
+          <ul style="margin:0;padding:0 0 0 16px">${(Array.isArray(drink.ingredientes)?drink.ingredientes:[]).map(i=>`<li style="margin-bottom:5px;font-size:15px;color:${C.cremaMid};line-height:1.5">${esc(i)}</li>`).join('')}</ul>
+        </div>
+        <div>
+          <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${C.verde};margin-bottom:8px;font-weight:700">Técnica</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">${tecnicas.map(t=>`<span style="font-size:13px;color:${C.verde};border:1px solid ${C.verde}44;border-radius:4px;padding:3px 9px">${esc(t)}</span>`).join('')}</div>
+        </div>
+        <div>
+          <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${C.ambar};margin-bottom:8px;font-weight:700">Garnish</div>
+          <p style="margin:0;font-size:15px;color:${C.cremaMid};line-height:1.6">${esc(drink.garnish||'—')}</p>
+        </div>
+        <div>
+          <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${C.verde};margin-bottom:8px;font-weight:700">Cristalería</div>
+          <p style="margin:0;font-size:15px;color:${C.cremaMid};line-height:1.6">${esc(drink.cristaleria||'—')}</p>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-top:1px solid ${C.border};border-bottom:1px solid ${C.border}">
+        <span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${C.ambar};font-weight:700;flex-shrink:0">Puntuación</span>
+        <div id="stars-${drink.id}" style="display:flex;align-items:center;gap:2px">${buildStarsHTML(drink.id,isMocktail,drink.puntuacion)}</div>
+        ${drink.puntuacion?`<span style="font-size:12px;color:${C.cremaMid}">${drink.puntuacion}/5</span>`:'<span style="font-size:12px;color:${C.cremaMid}">Sin puntuación</span>'}
+      </div>
+      <div style="margin-top:16px;background:${C.surfaceAlt};border-radius:8px;padding:16px">
+        <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${C.cremaMid};font-weight:700;margin-bottom:10px">🔒 Notas internas</div>
+        <textarea id="textarea-${drink.id}" oninput="S.pendingNotes['${drink.id}']=this.value" style="${iSt};min-height:80px;resize:vertical;margin-bottom:10px;background:${C.surface}" placeholder="Observaciones, mejoras, feedback del equipo…">${esc(notesVal)}</textarea>
+        <button id="notes-btn-${drink.id}" onclick="saveNotes('${drink.id}',${isMocktail})" style="background:transparent;border:1px solid ${C.ambar}55;border-radius:6px;color:${C.ambar};padding:8px 18px;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;min-height:36px">Guardar nota</button>
+      </div>
+      <div style="display:flex;gap:10px;padding-top:16px;margin-top:16px">
+        <button onclick="openEdit('${drink.id}',${isMocktail})" style="background:transparent;border:1px solid ${C.ambar}55;border-radius:6px;color:${C.ambar};padding:9px 20px;font-size:13px;font-weight:600;min-height:44px">✎ Editar</button>
+        <button onclick="openConfirmDel('${drink.id}','${esc(drink.name)}',${isMocktail})" style="background:transparent;border:1px solid #DCA08655;border-radius:6px;color:${C.deleteFg};padding:9px 20px;font-size:13px;min-height:44px">✕ Eliminar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ─── FORM ────────────────────────────────────────────────
+function buildMultiSelect(field,options,selected,placeholder){
+  const display=selected.length?selected.join(' · '):placeholder;
+  const opts=options.map(opt=>{const isSel=selected.includes(opt);return `<button type="button" onclick="selectMulti(event,'${field}','${esc(opt)}')" style="display:flex;align-items:center;gap:10px;width:100%;background:${isSel?C.surfaceAlt:'transparent'};border:none;border-bottom:1px solid ${C.border};color:${isSel?C.crema:C.cremaMid};padding:11px 13px;font-size:15px;font-family:${font};cursor:pointer;text-align:left"><span style="width:16px;height:16px;border:2px solid ${isSel?C.ambar:C.border};border-radius:3px;background:${isSel?C.ambar:'transparent'};display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${isSel?`<span style="color:${C.bg};font-size:10px;font-weight:900">✓</span>`:''}</span>${esc(opt)}</button>`;}).join('');
+  return `<div style="position:relative"><button type="button" onclick="toggleDD(event,'ddm-${field}')" style="${iSt};text-align:left;display:flex;justify-content:space-between;align-items:center;min-height:44px"><span id="ddm-${field}-disp" style="color:${selected.length?C.crema:C.cremaMid}">${esc(display)}</span><span style="color:${C.ambar};font-size:11px">▾</span></button><div id="ddm-${field}-panel" class="dd-panel" style="position:absolute;top:calc(100% + 4px);left:0;right:0;background:${C.surface};border:1px solid ${C.border};border-radius:6px;z-index:200;overflow:hidden;box-shadow:0 8px 24px rgba(61,53,39,.18);display:none">${opts}</div></div>`;
+}
+function buildSingleSelect(field,options,selected,placeholder){
+  const opts=options.map(opt=>`<button type="button" onclick="selectSingle(event,'${field}','${esc(opt)}')" style="display:block;width:100%;background:${selected===opt?C.surfaceAlt:'transparent'};border:none;border-bottom:1px solid ${C.border};color:${selected===opt?C.crema:C.cremaMid};padding:11px 13px;font-size:15px;font-family:${font};cursor:pointer;text-align:left">${esc(opt)}</button>`).join('');
+  return `<div style="position:relative"><button type="button" onclick="toggleDD(event,'dds-${field}')" style="${iSt};text-align:left;display:flex;justify-content:space-between;align-items:center;min-height:44px"><span id="dds-${field}-disp" style="color:${selected?C.crema:C.cremaMid}">${esc(selected||placeholder)}</span><span style="color:${C.ambar};font-size:11px">▾</span></button><div id="dds-${field}-panel" class="dd-panel" style="position:absolute;top:calc(100% + 4px);left:0;right:0;background:${C.surface};border:1px solid ${C.border};border-radius:6px;z-index:200;overflow:hidden;box-shadow:0 8px 24px rgba(61,53,39,.18);display:none">${opts}</div></div>`;
+}
+function buildForm(isMocktail,isEdit){
+  const f=S.form;
+  const nivelBtns=NIVELES.map(n=>`<button type="button" onclick="selectNivel('${n.value}')" id="nivel-btn-${n.value}" title="${esc(n.desc)}" style="padding:8px 16px;border-radius:6px;border:1.5px solid ${f.nivel===n.value?n.fg:C.border};background:${f.nivel===n.value?n.bg:'transparent'};color:${f.nivel===n.value?n.fg:C.cremaMid};font-size:13px;font-weight:${f.nivel===n.value?700:400};min-height:40px;transition:all 0.15s">${n.label}</button>`).join('');
+  const saveLbl=S.saving?`<span style="display:inline-flex;align-items:center;gap:8px"><span style="width:14px;height:14px;border:2px solid ${C.crema};border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block"></span>Guardando…</span>`:(isEdit?'Guardar cambios':'Guardar');
+  return `<div style="background:${C.surface};border:1px solid ${C.border};border-radius:10px;padding:28px">
+    <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:${C.ambar};margin-bottom:22px;font-weight:700">${isEdit?'✎ Editar':'+'} ${isMocktail?'Mocktail':'Cóctel'}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div style="grid-column:1/-1"><label for="f-name" style="${lSt}">Nombre</label><input id="f-name" style="${iSt}" value="${esc(f.name||'')}" oninput="S.form.name=this.value" placeholder="Nombre del cóctel"/></div>
+      <div style="grid-column:1/-1">
+        <label style="${lSt}">Nivel</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">${nivelBtns}</div>
+        <p id="nivel-desc" style="font-size:13px;color:${C.cremaMid};margin-top:6px">${nivelMeta(f.nivel).desc}</p>
+      </div>
+      ${!isMocktail
+        ?`<div style="grid-column:1/-1"><label style="${lSt}">Estilo</label>${buildSingleSelect('type',['autor','clasico'],f.type,'Seleccionar estilo')}</div>
+           <div style="grid-column:1/-1"><label style="${lSt}">Licor(es)</label>${buildMultiSelect('licor',licorTags,f.licor||[],'Seleccionar licor(es)')}</div>`
+        :`<div><label style="${lSt}">Categoría</label>${buildSingleSelect('tipo',mTipoTags,f.tipo||'','Categoría')}</div>
+           <div><label style="${lSt}">Perfil de sabor</label>${buildSingleSelect('perfil',mPerfilTags,f.perfil||'','Perfil')}</div>`}
+      <div style="grid-column:1/-1"><label for="f-desc" style="${lSt}">Descripción</label><input id="f-desc" style="${iSt}" value="${esc(f.description||'')}" oninput="S.form.description=this.value" placeholder="Una frase evocadora..."/></div>
+      <div style="grid-column:1/-1"><label for="f-ings" style="${lSt}">Ingredientes <span style="color:${C.cremaMid};text-transform:none;letter-spacing:0;font-size:11px;font-weight:400">(uno por línea)</span></label><textarea id="f-ings" style="${iSt};min-height:96px;resize:vertical" oninput="S.form.ingredientes=this.value" placeholder="Gin botánico 50ml&#10;Cordial de pino 20ml&#10;...">${esc(f.ingredientes||'')}</textarea></div>
+      <div><label style="${lSt}">Técnica</label>${buildMultiSelect('tecnica',TECNICAS,f.tecnica||[],'Seleccionar técnica(s)')}</div>
+      <div><label for="f-garnish" style="${lSt}">Garnish</label><input id="f-garnish" style="${iSt}" value="${esc(f.garnish||'')}" oninput="S.form.garnish=this.value" placeholder="Twist de naranja..."/></div>
+      <div style="grid-column:1/-1"><label style="${lSt}">Cristalería</label>${buildSingleSelect('cristaleria',CRISTALERIAS,f.cristaleria||'','Seleccionar cristalería')}</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:22px">
+      <button onclick="saveForm(${isMocktail})" ${S.saving?'disabled':''} style="background:${C.ambarSolid};color:${C.crema};border:none;border-radius:6px;padding:13px 26px;font-size:14px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;min-height:48px;opacity:${S.saving?.6:1}">${saveLbl}</button>
+      <button onclick="cancelForm()" ${S.saving?'disabled':''} style="background:transparent;color:${C.cremaMid};border:1px solid ${C.border};border-radius:6px;padding:13px 22px;font-size:14px;min-height:48px">Cancelar</button>
+    </div>
+  </div>`;
+}
+
+// ─── MODALS ───────────────────────────────────────────────
+function buildConfirmModal(){
+  const d=S.confirmDel;
+  const delLbl=S.saving?`<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:12px;height:12px;border:2px solid ${C.deleteFg};border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block"></span>Eliminando…</span>`:'Eliminar';
+  return `<div role="dialog" aria-modal="true" style="position:fixed;inset:0;background:rgba(12,28,23,.45);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;animation:fadeIn 0.18s ease">
+    <div style="background:${C.surface};border:1px solid ${C.border};border-radius:12px;padding:40px 32px;max-width:360px;width:90%;text-align:center">
+      <div style="width:28px;height:1px;background:${C.ambar};margin:0 auto 20px"></div>
+      <p style="font-family:${fontT};color:${C.crema};font-size:18px;margin:0 0 10px">¿Eliminar &ldquo;${esc(d.name)}&rdquo;?</p>
+      <p style="color:${C.cremaMid};font-size:15px;margin:0 0 28px;line-height:1.6">Esta acción no se puede deshacer.</p>
+      <div style="display:flex;gap:12px;justify-content:center">
+        <button onclick="S.confirmDel=null;renderApp()" ${S.saving?'disabled':''} style="background:transparent;border:1px solid ${C.border};border-radius:6px;color:${C.cremaMid};padding:12px 22px;font-size:14px;min-height:44px">Cancelar</button>
+        <button onclick="confirmDelete()" ${S.saving?'disabled':''} style="background:${C.deleteBg};border:1px solid #DCA086;border-radius:6px;color:${C.deleteFg};padding:12px 22px;font-size:14px;font-weight:700;min-height:44px">${delLbl}</button>
+      </div>
+    </div>
+  </div>`;
+}
+function buildEditModal(){
+  return `<div role="dialog" aria-modal="true" style="position:fixed;inset:0;background:rgba(12,28,23,.45);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:999;padding:20px;animation:fadeIn 0.18s ease"><div style="width:100%;max-width:580px;max-height:92vh;overflow-y:auto">${buildForm(S.editing.isMocktail,true)}</div></div>`;
+}
+
+// ─── TAB CONTENT ─────────────────────────────────────────
+function buildCocktailsTab(){
+  const drinks=filteredC();
+  return `<div style="animation:fadeIn 0.3s ease">
+    <div style="padding:20px 0 18px;border-bottom:1px solid ${C.border}">
+      ${radioRow('Estilo','amber',tipoTags,['De autor','Clásico'],S.fTipo,'fTipo')}
+      ${filterRow('Licor','green',licorTags,null,S.fLicor,'fLicor')}
+      ${radioRow('Nivel','amber',nivelTags,NIVELES.map(n=>n.label),S.fNivel,'fNivel')}
+    </div>
+    ${S.showAddC?`<div style="padding-top:22px">${buildForm(false,false)}</div>`:''}
+    <div>${S.cocktails.length===0?'':drinks.length===0?`<p style="padding:52px 0;text-align:center;color:${C.cremaMid};font-size:16px">Sin resultados para los filtros seleccionados.</p>`:drinks.map(ct=>drinkCard(ct,false)).join('')}</div>
+    ${!S.showAddC?`<button onclick="openAddForm(false)" style="margin-top:30px;background:transparent;border:1px dashed ${C.ambar}44;border-radius:8px;color:${C.ambar};padding:15px 24px;width:100%;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;min-height:52px">+ Agregar cóctel</button>`:''}
+  </div>`;
+}
+function buildMocktailsTab(){
+  const drinks=filteredM();
+  return `<div style="animation:fadeIn 0.3s ease">
+    <div style="padding:20px 0 18px;border-bottom:1px solid ${C.border}">
+      ${radioRow('Categoría','amber',mTipoTags,null,S.fMTipo,'fMTipo')}
+      ${filterRow('Perfil','green',mPerfilTags,null,S.fMPerf,'fMPerf')}
+      ${radioRow('Nivel','amber',nivelTags,NIVELES.map(n=>n.label),S.fMNivel,'fMNivel')}
+    </div>
+    ${S.showAddM?`<div style="padding-top:22px">${buildForm(true,false)}</div>`:''}
+    <div>${S.mocktails.length===0?'':drinks.length===0?`<p style="padding:52px 0;text-align:center;color:${C.cremaMid};font-size:16px">Sin resultados para los filtros seleccionados.</p>`:drinks.map(m=>drinkCard(m,true)).join('')}</div>
+    ${!S.showAddM?`<button onclick="openAddForm(true)" style="margin-top:30px;background:transparent;border:1px dashed ${C.verde}44;border-radius:8px;color:${C.verde};padding:15px 24px;width:100%;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;min-height:52px">+ Agregar mocktail</button>`:''}
+  </div>`;
+}
+
+// ─── RENDER ───────────────────────────────────────────────
+function renderApp(){
+  const divider=`<div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:28px"><div style="height:1px;width:50px;background:linear-gradient(to right,transparent,${C.ambar}66)"></div><div style="width:4px;height:4px;border-radius:50%;background:${C.ambar};opacity:.7"></div><div style="height:1px;width:50px;background:linear-gradient(to left,transparent,${C.ambar}66)"></div></div>`;
+  if(S.loading){
+    document.getElementById('app').innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:20px">
+      <div style="width:64px">${BRUMI_SVG}</div>
+      <h1 style="font-family:${fontT};font-size:52px;color:${C.crema};letter-spacing:0.06em;font-weight:400">BRUMA</h1>
+      <div style="width:28px;height:28px;border:2px solid ${C.ambar}44;border-top-color:${C.ambar};border-radius:50%;animation:spin 0.8s linear infinite"></div>
+      <p style="font-size:12px;letter-spacing:0.2em;text-transform:uppercase;color:${C.cremaMid}">Cargando menú…</p>
+    </div>`;
+    return;
+  }
+  const header=`<header style="text-align:center;padding:52px 24px 36px;border-bottom:1px solid ${C.border}">
+    <div style="display:flex;justify-content:center;margin-bottom:18px"><div style="width:78px">${BRUMI_SVG}</div></div>
+    <p style="font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:${C.ambar};margin-bottom:16px;font-weight:600">Menú de Experiencias Líquidas</p>
+    <h1 style="font-family:${fontT};font-size:clamp(44px,9vw,76px);color:${C.crema};letter-spacing:0.06em;font-weight:400;line-height:1">BRUMA</h1>
+    ${divider}
+    <button onclick="loadFromAirtable()" title="Recargar desde Airtable" style="margin-top:20px;background:transparent;border:1px solid ${C.ambar}44;border-radius:6px;color:${C.ambar};padding:8px 18px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;min-height:36px">↺ Recargar</button>
+  </header>`;
+  const tabs=`<nav style="display:flex;justify-content:center;border-bottom:1px solid ${C.border};max-width:880px;margin:0 auto">
+    ${[{key:'cocktails',label:'Cócteles',count:S.cocktails.length},{key:'mocktails',label:'Mocktails',count:S.mocktails.length}].map(t=>`<button onclick="switchTab('${t.key}')" role="tab" aria-selected="${S.tab===t.key}" style="background:none;border:none;border-bottom:${S.tab===t.key?`2px solid ${C.ambar}`:'2px solid transparent'};color:${S.tab===t.key?C.crema:C.cremaMid};padding:20px 36px;font-size:13px;font-weight:${S.tab===t.key?700:400};letter-spacing:0.14em;text-transform:uppercase;transition:all 0.2s;margin-bottom:-1px;min-height:60px">${t.label}<span style="margin-left:8px;font-size:11px;color:${S.tab===t.key?C.ambar:C.cremaMid+'66'};font-weight:400">${t.count}</span></button>`).join('')}
+  </nav>`;
+  const main=`<main style="max-width:880px;margin:0 auto;padding:0 24px">${S.tab==='cocktails'?buildCocktailsTab():buildMocktailsTab()}</main>`;
+  const footer=`<footer style="max-width:880px;margin:72px auto 0;padding:0 24px"><div style="border-top:1px solid ${C.border};padding-top:30px;text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:14px"><div style="height:1px;width:36px;background:linear-gradient(to right,transparent,${C.ambar}55)"></div><div style="width:3px;height:3px;border-radius:50%;background:${C.ambar};opacity:.5"></div><div style="height:1px;width:36px;background:linear-gradient(to left,transparent,${C.ambar}55)"></div></div><p style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:${C.cremaMid};margin-bottom:24px">Bruma · Coctelería · Mocktails · Experiencias</p><div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;padding-top:20px;border-top:1px solid ${C.border}">${NIVELES.map(n=>`<div style="display:flex;align-items:center;gap:8px">${nivelBadge(n.value)}<span style="font-size:12px;color:${C.cremaMid}">${esc(n.desc)}</span></div>`).join('')}</div></div></footer>`;
+  document.getElementById('app').innerHTML=header+tabs+main+footer+(S.editing?buildEditModal():'')+(S.confirmDel?buildConfirmModal():'');
+}
+
+// ─── ACTIONS ─────────────────────────────────────────────
+function switchTab(tab){S.tab=tab;renderApp();}
+function toggleFilter(key,val){const arr=S[key];const idx=arr.indexOf(val);if(idx>=0)arr.splice(idx,1);else arr.push(val);renderApp();}
+function toggleCard(id){S.expanded[id]=!S.expanded[id];const d=document.getElementById(`card-detail-${id}`);const ic=document.getElementById(`card-icon-${id}`);if(d)d.style.display=S.expanded[id]?'block':'none';if(ic)ic.style.transform=`rotate(${S.expanded[id]?45:0}deg)`;}
+
+// ─── FORM ACTIONS ────────────────────────────────────────
+function openAddForm(isMocktail){
+  S.form={name:'',type:'autor',licor:[],tipo:'botánico',perfil:'fresco',nivel:'halo',description:'',ingredientes:'',tecnica:[],garnish:'',cristaleria:'',puntuacion:0,notas:''};
+  if(isMocktail)S.showAddM=true;else S.showAddC=true;
+  renderApp();
+}
+function openEdit(id,isMocktail){
+  const drink=isMocktail?S.mocktails.find(m=>m.id===id):S.cocktails.find(c=>c.id===id);
+  if(!drink)return;
+  S.editing={id,isMocktail,_recId:drink._recId};
+  S.form={name:drink.name||'',type:drink.type||'autor',licor:Array.isArray(drink.licor)?[...drink.licor]:[],tipo:drink.tipo||'botánico',perfil:drink.perfil||'fresco',nivel:drink.nivel||'halo',description:drink.description||'',ingredientes:Array.isArray(drink.ingredientes)?drink.ingredientes.join('\n'):(drink.ingredientes||''),tecnica:Array.isArray(drink.tecnica)?[...drink.tecnica]:[],garnish:drink.garnish||'',cristaleria:drink.cristaleria||'',puntuacion:drink.puntuacion||0,notas:drink.notas||''};
+  renderApp();
+}
+function cancelForm(){S.form=null;S.editing=null;S.showAddC=false;S.showAddM=false;renderApp();}
+
+async function saveForm(isMocktail){
+  const f=S.form;
+  if(!f||!f.name.trim()){showToast('El nombre es obligatorio',true);return;}
+  const ings=(f.ingredientes||'').split('\n').filter(Boolean);
+  const base={name:f.name.trim(),description:f.description||'',ingredientes:ings,tecnica:f.tecnica||[],garnish:f.garnish||'',cristaleria:f.cristaleria||'',nivel:f.nivel||'halo',puntuacion:f.puntuacion||0,notas:f.notas||''};
+  S.saving=true;renderApp();
+  try{
+    if(S.editing){
+      const item=isMocktail?{...base,tipo:f.tipo||'botánico',perfil:f.perfil||'fresco'}:{...base,type:f.type||'autor',licor:f.licor||[]};
+      const tbl=isMocktail?AT.MT:AT.CT;
+      const fields=isMocktail?mocktailFields(item):cocktailFields(item);
+      await mcp('update_records_for_table',{baseId:AT.base,tableId:tbl,records:[{id:S.editing._recId,fields}]});
+      item._recId=S.editing._recId;item.id=S.editing.id;
+      if(isMocktail)S.mocktails=S.mocktails.map(m=>m.id===S.editing.id?item:m);
+      else S.cocktails=S.cocktails.map(c=>c.id===S.editing.id?item:c);
+      S.editing=null;
+    }else{
+      const item=isMocktail?{...base,tipo:f.tipo||'botánico',perfil:f.perfil||'fresco'}:{...base,type:f.type||'autor',licor:f.licor||[]};
+      const tbl=isMocktail?AT.MT:AT.CT;
+      const fields=isMocktail?mocktailFields(item):cocktailFields(item);
+      const res=await mcp('create_records_for_table',{baseId:AT.base,tableId:tbl,typecast:true,records:[{fields}]});
+      const recId=res.records[0].id;
+      item._recId=recId;item.id=recId;
+      if(isMocktail){S.mocktails=[...S.mocktails,item];S.showAddM=false;}
+      else{S.cocktails=[...S.cocktails,item];S.showAddC=false;}
+    }
+    S.form=null;S.saving=false;renderApp();showToast('✦ Guardado en Airtable');
+  }catch(err){S.saving=false;renderApp();showToast('Error: '+err.message,true);}
+}
+
+// ─── DELETE ──────────────────────────────────────────────
+function openConfirmDel(id,name,isMocktail){S.confirmDel={id,name,isMocktail};renderApp();}
+async function confirmDelete(){
+  if(!S.confirmDel)return;
+  const{id,isMocktail}=S.confirmDel;
+  const drink=isMocktail?S.mocktails.find(m=>m.id===id):S.cocktails.find(c=>c.id===id);
+  if(!drink)return;
+  S.saving=true;renderApp();
+  try{
+    await mcp('delete_records_for_table',{baseId:AT.base,tableId:isMocktail?AT.MT:AT.CT,recordIds:[drink._recId]});
+    if(isMocktail)S.mocktails=S.mocktails.filter(m=>m.id!==id);
+    else S.cocktails=S.cocktails.filter(c=>c.id!==id);
+    S.confirmDel=null;S.saving=false;renderApp();showToast('Eliminado');
+  }catch(err){S.saving=false;renderApp();showToast('Error: '+err.message,true);}
+}
+
+// ─── DROPDOWN HELPERS ────────────────────────────────────
+function toggleDD(event,id){event.stopPropagation();const p=document.getElementById(id+'-panel');if(!p)return;const open=p.style.display!=='none';document.querySelectorAll('.dd-panel').forEach(x=>x.style.display='none');if(!open)p.style.display='block';}
+function selectMulti(event,field,val){
+  event.stopPropagation();if(!S.form)return;
+  const arr=Array.isArray(S.form[field])?[...S.form[field]]:[];
+  const idx=arr.indexOf(val);if(idx>=0)arr.splice(idx,1);else arr.push(val);
+  S.form[field]=arr;
+  const disp=document.getElementById(`ddm-${field}-disp`);
+  if(disp){disp.textContent=arr.length?arr.join(' · '):'Seleccionar…';disp.style.color=arr.length?C.crema:C.cremaMid;}
+  const panel=document.getElementById(`ddm-${field}-panel`);
+  if(panel){const opts=getMultiOptions(field);panel.innerHTML=opts.map(opt=>{const s=arr.includes(opt);return `<button type="button" onclick="selectMulti(event,'${field}','${esc(opt)}')" style="display:flex;align-items:center;gap:10px;width:100%;background:${s?C.surfaceAlt:'transparent'};border:none;border-bottom:1px solid ${C.border};color:${s?C.crema:C.cremaMid};padding:11px 13px;font-size:15px;font-family:${font};cursor:pointer;text-align:left"><span style="width:16px;height:16px;border:2px solid ${s?C.ambar:C.border};border-radius:3px;background:${s?C.ambar:'transparent'};display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">${s?`<span style="color:${C.bg};font-size:10px;font-weight:900">✓</span>`:''}</span>${esc(opt)}</button>`;}).join('');}
+}
+function selectSingle(event,field,val){
+  event.stopPropagation();if(!S.form)return;
+  S.form[field]=val;
+  const disp=document.getElementById(`dds-${field}-disp`);if(disp){disp.textContent=val;disp.style.color=C.crema;}
+  const panel=document.getElementById(`dds-${field}-panel`);
+  if(panel){const opts={cristaleria:CRISTALERIAS,type:['autor','clasico'],tipo:mTipoTags,perfil:mPerfilTags}[field]||[];panel.innerHTML=opts.map(opt=>`<button type="button" onclick="selectSingle(event,'${field}','${esc(opt)}')" style="display:block;width:100%;background:${val===opt?C.surfaceAlt:'transparent'};border:none;border-bottom:1px solid ${C.border};color:${val===opt?C.crema:C.cremaMid};padding:11px 13px;font-size:15px;font-family:${font};cursor:pointer;text-align:left">${esc(opt)}</button>`).join('');panel.style.display='none';}
+}
+function selectNivel(val){
+  if(!S.form)return;S.form.nivel=val;
+  NIVELES.forEach(n=>{const btn=document.getElementById(`nivel-btn-${n.value}`);if(!btn)return;const a=val===n.value;btn.style.border=`1.5px solid ${a?n.fg:C.border}`;btn.style.background=a?n.bg:'transparent';btn.style.color=a?n.fg:C.cremaMid;btn.style.fontWeight=a?'700':'400';});
+  const d=document.getElementById('nivel-desc');if(d)d.textContent=nivelMeta(val).desc;
+}
+document.addEventListener('click',()=>document.querySelectorAll('.dd-panel').forEach(p=>p.style.display='none'));
+
+// ─── LOAD FROM AIRTABLE ───────────────────────────────────
+async function loadFromAirtable(){
+  S.loading=true;renderApp();
+  try{
+    const[cRes,mRes]=await Promise.all([
+      mcp('list_records_for_table',{baseId:AT.base,tableId:AT.CT}),
+      mcp('list_records_for_table',{baseId:AT.base,tableId:AT.MT})
+    ]);
+    S.cocktails=(cRes.records||[]).map(parseCocktail).filter(d=>d.name);
+    S.mocktails=(mRes.records||[]).map(parseMocktail).filter(d=>d.name);
+  }catch(err){showToast('Error cargando Airtable: '+err.message,true);}
+  S.loading=false;renderApp();
+}
+
+// ─── INIT ─────────────────────────────────────────────────
+loadFromAirtable();
+</script>
+</body>
+</html>
