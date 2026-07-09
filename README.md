@@ -11,9 +11,22 @@
 
 ---
 
+## 🍸 Úsalo aquí
+
+### → **https://brumaheldinambar.github.io/bruma-menu/**
+
+La primera vez te pedirá tu **token personal de Airtable** (se guarda solo en tu navegador, nunca sale de tu equipo). Para crearlo:
+
+1. Entra a **[airtable.com/create/tokens](https://airtable.com/create/tokens)**.
+2. Crea un token con los permisos (*scopes*) `data.records:read` y `data.records:write`.
+3. En *Access*, selecciona la base del menú Bruma.
+4. Copia el token (empieza con `pat…`) y pégalo en la pantalla de entrada del menú.
+
+Necesitas ser **colaborador de la base de Airtable** — el token solo da el acceso que tu cuenta ya tiene. Para cambiar de token más adelante, usa el enlace "Cambiar token de Airtable" al pie de la página.
+
 ## ¿Qué es esto?
 
-Un **live artifact de Claude Cowork**: una app HTML de un solo archivo ([`index.html`](index.html)) con CRUD completo del menú —cócteles y mocktails— que lee y escribe directamente en nuestra base de Airtable.
+Una app HTML de un solo archivo ([`index.html`](index.html)) con CRUD completo del menú —cócteles y mocktails— que lee y escribe directamente en nuestra base de Airtable.
 
 Funciones:
 
@@ -22,18 +35,12 @@ Funciones:
 - **Notas internas** por trago, guardadas en Airtable.
 - **Crear, editar y eliminar** tragos con formulario validado.
 
-## ⚠️ Cómo usarlo (importante)
+Funciona en **modo dual**:
 
-Este archivo **no funciona como página web normal** (no basta con abrirlo en el navegador): usa el puente `window.cowork.callMcpTool` para hablar con Airtable, que solo existe dentro de **Claude Cowork**.
+- **Navegador normal** (GitHub Pages o abriendo el archivo localmente): usa la API REST de Airtable con tu token personal.
+- **Claude Cowork**: si se abre como live artifact, detecta el puente `window.cowork` y usa el conector MCP de Airtable automáticamente, sin token.
 
-Para usarlo:
-
-1. Descarga `index.html` de este repo.
-2. Ábrelo como artifact en una sesión de **Claude Cowork** (arrástralo a la conversación o cópialo a tu carpeta de Artifacts).
-3. Asegúrate de tener el **conector de Airtable** activo en Cowork, con acceso a la base *Bruma Menu*.
-4. Al abrirse, el menú carga los tragos automáticamente. Cambios que guardes se escriben en Airtable para todo el equipo.
-
-> Nota: el código contiene los IDs de la base y tablas de Airtable (no credenciales). El acceso real depende de que tu cuenta de Airtable tenga permiso sobre la base.
+> Seguridad: este repo es público, pero **los datos no lo son**. El código solo contiene los IDs de la base y tablas de Airtable (no credenciales); recetas, notas y puntuaciones solo se ven con un token de una cuenta con permiso sobre la base.
 
 ## Imagen de marca
 
