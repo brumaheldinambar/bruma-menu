@@ -75,7 +75,11 @@ const AT={
   base:'appNSuGdVFQa9QtDE',
   CT:'tbltO2EsJkbXaPDRB',
   MT:'tblDB1EC9QYCtDrvi',
+  IT:'tblrcxVKSEtG03NN9',
+  PT:'tblMZmWtjWhL83SWo',
   MCP:'mcp__ad5c81d3-6e90-4ba0-a816-000541d1a766',
+  I:{insumo:'fldPn1qAPB8IZbMej',proveedor:'flduJNeIsTqOz5cfu',presentacion:'fldYD2YeOSus0aKHa',precio:'fldXRYbvcqQIS48H5',cantidad:'fldx9OsinCznnFLMi',unidad:'fldjkZbEQ8aMxYFrg',url:'fldFZfSXnXQ0F6wcR',fuente:'fldIfayhO8dcUIuvE',fecha:'fldYmofH1TlZsI7Sm'},
+  P:{name:'fldZA5SDkrRXk6Z2S'},
   C:{name:'fld0zNbzfOPwgADm5',type:'fldYuLHMOgU3yaogW',licor:'fldZtVwcdpRV9Eeg9',nivel:'fldZxMo7kScNyi56J',description:'fldHSGvc35DzC8GcC',ingredientes:'fldRiOjXk5XcYRr1P',tecnica:'fldf0PFlLckww4ccE',garnish:'fldGImm53A0lShEIC',cristaleria:'fldkHuVxUktLjjNdX',puntuacion:'fldPfdgilX8HvRTiP',notas:'fldb3vytDICdRjdP9'},
   M:{name:'fld8J2TKxb22tsct1',tipo:'fldinZfR2vT2Cp7S3',perfil:'fldxXuo60ARIHRW9x',nivel:'fldcHZXjVPpBx9mrB',description:'fldnM9hRGZc1xL9QY',ingredientes:'fld8XIwSUbLmA6VkZ',tecnica:'flduJLwspjsih2AqL',garnish:'fldKoK46tZo99HUVT',cristaleria:'fldNSs2hpSEV2Txlv',puntuacion:'fldRnd31lgvGGp4b3',notas:'fldnf3jnoMOBFqy2R'}
 };
@@ -134,7 +138,9 @@ const S={
   fMTipo:'todos', fMPerf:'todos', fMNivel:'todos',
   showAddC:false, showAddM:false, editing:null, confirmDel:null,
   expanded:{}, form:null, loading:true, saving:false,
-  pendingNotes:{}, _toastTimer:null, needToken:false
+  pendingNotes:{}, _toastTimer:null, needToken:false,
+  insumos:[], provMap:{}, costesOk:true,
+  fCNivel:'todos', costGroup:15, costExp:{}
 };
 
 // ─── TOAST ────────────────────────────────────────────────
@@ -403,6 +409,138 @@ function buildMocktailsTab(){
   </div>`;
 }
 
+// ─── COSTES · modelo (portado del módulo CostosProveedores) ──
+const COSTM={overhead:0.15,mult:{halo:3.5,ambar:4.0,prueba:3.5},baseEst:{halo:8000,ambar:15000,prueba:8000}};
+function volumeEff(n){if(n>=40)return .20;if(n>=25)return .14;if(n>=15)return .08;return 0;}
+const fmtCOP=n=>new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(Math.round(n||0));
+const normTxt=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+
+function parseInsumo(r){
+  const f=r.cellValuesByFieldId||r.fields||{};
+  const provRaw=f[AT.I.proveedor]||[];
+  const provNames=(Array.isArray(provRaw)?provRaw:[provRaw]).map(p=>typeof p==='string'?(S.provMap[p]||''):(p?.name||S.provMap[p?.id]||'')).filter(Boolean);
+  const precio=Number(f[AT.I.precio])||0;
+  const cantidad=Number(f[AT.I.cantidad])||0;
+  return {id:r.id,insumo:f[AT.I.insumo]||'',presentacion:f[AT.I.presentacion]||'',precio,cantidad,
+    unidad:selVal(f[AT.I.unidad])||'ml',cpu:cantidad>0?precio/cantidad:0,
+    proveedor:provNames.join(', '),url:f[AT.I.url]||'',fuente:selVal(f[AT.I.fuente])||'',fecha:f[AT.I.fecha]||''};
+}
+
+// "Gin botánico 50ml" → {name:'gin botanico', qty:50, unit:'ml', qml:50}
+function parseIngLine(line){
+  const m=String(line).match(/(\d+(?:[.,]\d+)?)\s*(ml|gr?|oz|uds?|un|u\b|dash(?:es)?|cdta|cda|gotas?)\b/i);
+  let qty=null,unit=null,qml=null;
+  if(m){
+    qty=parseFloat(m[1].replace(',','.'));unit=m[2].toLowerCase();qml=qty;
+    if(unit==='oz')qml=qty*30;else if(unit==='cda')qml=qty*15;else if(unit==='cdta')qml=qty*5;
+    else if(unit.startsWith('dash'))qml=qty;else if(unit.startsWith('gota'))qml=qty*0.05;
+  }
+  const name=normTxt(String(line).replace(m?m[0]:'','').replace(/\s{2,}/g,' '));
+  return {raw:String(line).trim(),name,qty,unit,qml};
+}
+
+function drinkCost(d){
+  const eficiencia=volumeEff(S.costGroup);
+  const items=[];let costoInsumos=0;let matched=0;
+  for(const ln of (d.ingredientes||[])){
+    const p=parseIngLine(ln);
+    let ins=null;
+    for(const i of S.insumos){
+      const nn=normTxt(i.insumo);
+      if(nn.length>=3&&(p.name.includes(nn)||nn.includes(p.name))){ins=i;break;}
+    }
+    if(ins&&ins.cpu>0){
+      const q=ins.unidad==='un'?(p.qty||1):(p.qml||0);
+      const c=ins.cpu*q;
+      items.push({...p,ins,costo:c,ok:q>0});
+      costoInsumos+=c;matched++;
+    }else items.push({...p,ins:null,costo:0,ok:false});
+  }
+  const estimado=matched===0;
+  if(estimado)costoInsumos=COSTM.baseEst[d.nivel]??COSTM.baseEst.halo;
+  costoInsumos*=(1-eficiencia);
+  const conOverhead=costoInsumos*(1+COSTM.overhead);
+  const precioSugerido=conOverhead*(COSTM.mult[d.nivel]??COSTM.mult.halo);
+  const margen=precioSugerido-conOverhead;
+  return {items,estimado,matched,eficiencia,costoInsumos,conOverhead,precioSugerido,margen,
+    margenPct:precioSugerido>0?margen/precioSugerido:0};
+}
+
+// ─── COSTES · pestaña ─────────────────────────────────────
+function setCostGroup(v){S.costGroup=Math.max(1,Number(v)||1);renderApp();}
+function toggleCost(id){S.costExp[id]=!S.costExp[id];renderApp();}
+function costRow(d,isM){
+  const r=drinkCost(d);
+  const exp=!!S.costExp[d.id];
+  const catBadge=`<span style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;font-weight:600;color:${isM?C.verde:C.ambar};border:1px solid ${isM?C.verde:C.ambar}44;border-radius:3px;padding:2px 7px">${isM?'Mocktail':'Cóctel'}</span>`;
+  const srcBadge=r.estimado
+    ?`<span title="Sin insumos vinculados — usa el estimado por nivel" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;background:${C.pruebaBg};color:${C.pruebaFg};border-radius:3px;padding:2px 7px">Estimado</span>`
+    :`<span title="${r.matched} ingrediente(s) con precio de proveedor" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;background:${C.halobg};color:${C.haloFg};border-radius:3px;padding:2px 7px">Proveedores ${r.matched}/${r.items.length}</span>`;
+  const detail=!exp?'':`<div style="margin-top:14px;padding-top:14px;border-top:1px solid ${C.border};animation:fadeIn 0.2s ease">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:14px">
+      <thead><tr>
+        <th style="text-align:left;padding:4px 8px 8px 0;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:${C.cremaMid}">Ingrediente</th>
+        <th style="text-align:left;padding:4px 8px 8px 0;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:${C.cremaMid}">Insumo · proveedor</th>
+        <th style="text-align:right;padding:4px 0 8px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:${C.cremaMid}">Costo</th>
+      </tr></thead>
+      <tbody>${r.items.map(it=>`<tr style="border-top:1px solid ${C.border}">
+        <td style="padding:7px 8px 7px 0;color:${C.crema}">${esc(it.raw)}</td>
+        <td style="padding:7px 8px 7px 0;color:${it.ins?C.cremaMid:C.deleteFg}">${it.ins?esc(it.ins.insumo)+(it.ins.proveedor?' · '+esc(it.ins.proveedor):''):'Sin precio en Insumos'}</td>
+        <td style="padding:7px 0;text-align:right;color:${it.ins?C.crema:C.cremaMid}">${it.ins?(it.ok?fmtCOP(it.costo):'—'):'—'}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;font-size:13px">
+      <div><div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:${C.cremaMid};margin-bottom:3px">Insumos${r.eficiencia?` (−${Math.round(r.eficiencia*100)}% volumen)`:''}</div><div>${fmtCOP(r.costoInsumos)}</div></div>
+      <div><div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:${C.cremaMid};margin-bottom:3px">+ Overhead 15%</div><div>${fmtCOP(r.conOverhead)}</div></div>
+      <div><div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:${C.cremaMid};margin-bottom:3px">× ${(COSTM.mult[d.nivel]??COSTM.mult.halo).toFixed(1)} (${nivelMeta(d.nivel).label})</div><div style="color:${C.ambar};font-weight:700">${fmtCOP(r.precioSugerido)}</div></div>
+      <div><div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:${C.cremaMid};margin-bottom:3px">Margen</div><div style="color:${C.verde};font-weight:600">${fmtCOP(r.margen)} (${(r.margenPct*100).toFixed(0)}%)</div></div>
+    </div>
+  </div>`;
+  return `<div style="border-bottom:1px solid ${C.border};padding:16px 0">
+    <div onclick="toggleCost('${d.id}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter')toggleCost('${d.id}')" style="display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1;min-width:200px">
+        <span style="font-family:${fontT};font-size:18px;color:${C.crema}">${esc(d.name)}</span>
+        ${nivelBadge(d.nivel)}${catBadge}${srcBadge}
+      </div>
+      <div style="display:flex;align-items:center;gap:18px">
+        <div style="text-align:right"><div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:${C.cremaMid}">Costo</div><div style="font-size:14px;color:${C.crema}">${fmtCOP(r.conOverhead)}</div></div>
+        <div style="text-align:right"><div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:${C.cremaMid}">Precio sug.</div><div style="font-size:15px;color:${C.ambar};font-weight:700">${fmtCOP(r.precioSugerido)}</div></div>
+        <div id="cost-icon-${d.id}" style="font-size:18px;color:${C.ambar};transform:rotate(${exp?45:0}deg);transition:transform 0.25s;width:20px;text-align:center">+</div>
+      </div>
+    </div>
+    ${detail}
+  </div>`;
+}
+function buildCostesTab(){
+  const all=[...S.cocktails.map(d=>({d,isM:false})),...S.mocktails.map(d=>({d,isM:true}))]
+    .filter(x=>S.fCNivel==='todos'||x.d.nivel===S.fCNivel);
+  const results=all.map(x=>({...x,r:drinkCost(x.d)}));
+  const conDatos=results.filter(x=>!x.r.estimado).length;
+  const promMargen=results.length?results.reduce((s,x)=>s+x.r.margenPct,0)/results.length:0;
+  const promPrecio=results.length?results.reduce((s,x)=>s+x.r.precioSugerido,0)/results.length:0;
+  const promCosto=results.length?results.reduce((s,x)=>s+x.r.conOverhead,0)/results.length:0;
+  const banner=!S.costesOk
+    ?`<div style="background:${C.deleteBg};border:1px solid #DCA086;border-radius:8px;padding:14px 18px;margin:20px 0 0;font-size:13px;line-height:1.6;color:${C.deleteFg}">No pude leer las tablas <strong>Insumos</strong> / <strong>Proveedores</strong>. Si tu token de Airtable es anterior a la creación de esas tablas, créalo de nuevo (el acceso por base las incluye automáticamente).</div>`
+    :(S.insumos.length===0
+      ?`<div style="background:${C.ambarBg};border:1px solid ${C.ambar}55;border-radius:8px;padding:14px 18px;margin:20px 0 0;font-size:13px;line-height:1.6;color:${C.ambarFg}">La tabla <strong>Insumos</strong> de Airtable está vacía — todos los costos usan el estimado por nivel (Halo ${fmtCOP(COSTM.baseEst.halo)} · Ámbar ${fmtCOP(COSTM.baseEst.ambar)}). Agrega insumos con precio y proveedor para ver costos reales por ingrediente.</div>`:'');
+  const tiles=[['Tragos con costo real',`${conDatos} de ${results.length}`],['Costo promedio',fmtCOP(promCosto)],['Precio sugerido prom.',fmtCOP(promPrecio)],['Margen promedio',`${(promMargen*100).toFixed(1)}%`]]
+    .map(([l,v])=>`<div style="background:${C.surface};border:1px solid ${C.border};border-top:3px solid ${C.ambarSolid};border-radius:8px;padding:14px 16px"><div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:${C.cremaMid};margin-bottom:6px">${l}</div><div style="font-size:19px;font-weight:600;color:${C.crema}">${v}</div></div>`).join('');
+  return `<div style="animation:fadeIn 0.3s ease">
+    <div style="padding:20px 0 18px;border-bottom:1px solid ${C.border}">
+      ${radioRow('Nivel','amber',nivelTags,NIVELES.map(n=>n.label),S.fCNivel,'fCNivel')}
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${C.ambar};font-weight:700;min-width:68px">Grupo</span>
+        <input type="number" min="1" value="${S.costGroup}" onchange="setCostGroup(this.value)" style="${iSt};width:90px;min-height:36px"/>
+        <span style="font-size:12px;color:${C.cremaMid}">personas${volumeEff(S.costGroup)?` · eficiencia por volumen −${Math.round(volumeEff(S.costGroup)*100)}%`:''}</span>
+      </div>
+      ${banner}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:22px 0 6px">${tiles}</div>
+    <div>${results.length===0?`<p style="padding:52px 0;text-align:center;color:${C.cremaMid};font-size:16px">Sin tragos para el nivel seleccionado.</p>`:results.map(x=>costRow(x.d,x.isM)).join('')}</div>
+    <p style="margin-top:22px;font-size:12px;color:${C.cremaMid};line-height:1.6">Modelo: costo de insumos (precios de proveedores en Airtable, o estimado por nivel si no hay datos) − eficiencia por volumen + 15% overhead × multiplicador por nivel (Halo 3.5 · Ámbar 4.0). Edita insumos y precios en la tabla <strong>Insumos</strong> de Airtable.</p>
+  </div>`;
+}
+
 // ─── TOKEN GATE (solo modo navegador, sin Cowork) ─────────
 function buildTokenGate(){
   return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px">
@@ -455,9 +593,9 @@ function renderApp(){
     <button onclick="loadFromAirtable()" title="Recargar desde Airtable" style="margin-top:20px;background:transparent;border:1px solid ${C.ambar}44;border-radius:6px;color:${C.ambar};padding:8px 18px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;min-height:36px">↺ Recargar</button>
   </header>`;
   const tabs=`<nav style="display:flex;justify-content:center;border-bottom:1px solid ${C.border};max-width:880px;margin:0 auto">
-    ${[{key:'cocktails',label:'Cócteles',count:S.cocktails.length},{key:'mocktails',label:'Mocktails',count:S.mocktails.length}].map(t=>`<button onclick="switchTab('${t.key}')" role="tab" aria-selected="${S.tab===t.key}" style="background:none;border:none;border-bottom:${S.tab===t.key?`2px solid ${C.ambar}`:'2px solid transparent'};color:${S.tab===t.key?C.crema:C.cremaMid};padding:20px 36px;font-size:13px;font-weight:${S.tab===t.key?700:400};letter-spacing:0.14em;text-transform:uppercase;transition:all 0.2s;margin-bottom:-1px;min-height:60px">${t.label}<span style="margin-left:8px;font-size:11px;color:${S.tab===t.key?C.ambar:C.cremaMid+'66'};font-weight:400">${t.count}</span></button>`).join('')}
+    ${[{key:'cocktails',label:'Cócteles',count:S.cocktails.length},{key:'mocktails',label:'Mocktails',count:S.mocktails.length},{key:'costes',label:'Costes',count:S.insumos.length}].map(t=>`<button onclick="switchTab('${t.key}')" role="tab" aria-selected="${S.tab===t.key}" style="background:none;border:none;border-bottom:${S.tab===t.key?`2px solid ${C.ambar}`:'2px solid transparent'};color:${S.tab===t.key?C.crema:C.cremaMid};padding:20px 36px;font-size:13px;font-weight:${S.tab===t.key?700:400};letter-spacing:0.14em;text-transform:uppercase;transition:all 0.2s;margin-bottom:-1px;min-height:60px">${t.label}<span style="margin-left:8px;font-size:11px;color:${S.tab===t.key?C.ambar:C.cremaMid+'66'};font-weight:400">${t.count}</span></button>`).join('')}
   </nav>`;
-  const main=`<main style="max-width:880px;margin:0 auto;padding:0 24px">${S.tab==='cocktails'?buildCocktailsTab():buildMocktailsTab()}</main>`;
+  const main=`<main style="max-width:880px;margin:0 auto;padding:0 24px">${S.tab==='cocktails'?buildCocktailsTab():S.tab==='mocktails'?buildMocktailsTab():buildCostesTab()}</main>`;
   const footer=`<footer style="max-width:880px;margin:72px auto 0;padding:0 24px"><div style="border-top:1px solid ${C.border};padding-top:30px;text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:14px"><div style="height:1px;width:36px;background:linear-gradient(to right,transparent,${C.ambar}55)"></div><div style="width:3px;height:3px;border-radius:50%;background:${C.ambar};opacity:.5"></div><div style="height:1px;width:36px;background:linear-gradient(to left,transparent,${C.ambar}55)"></div></div><p style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:${C.cremaMid};margin-bottom:24px">Bruma · Coctelería · Mocktails · Experiencias</p>${!hasCowork()?`<button onclick="clearToken()" style="background:transparent;border:none;color:${C.cremaMid};font-size:11px;letter-spacing:0.1em;text-transform:uppercase;text-decoration:underline;margin-bottom:20px">Cambiar token de Airtable</button>`:''}<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;padding-top:20px;border-top:1px solid ${C.border}">${NIVELES.map(n=>`<div style="display:flex;align-items:center;gap:8px">${nivelBadge(n.value)}<span style="font-size:12px;color:${C.cremaMid}">${esc(n.desc)}</span></div>`).join('')}</div></div></footer>`;
   document.getElementById('app').innerHTML=header+tabs+main+footer+(S.editing?buildEditModal():'')+(S.confirmDel?buildConfirmModal():'');
 }
@@ -565,6 +703,16 @@ async function loadFromAirtable(){
     S.cocktails=(cRes.records||[]).map(parseCocktail).filter(d=>d.name);
     S.mocktails=(mRes.records||[]).map(parseMocktail).filter(d=>d.name);
   }catch(err){showToast('Error cargando Airtable: '+err.message,true);}
+  try{
+    const[iRes,pRes]=await Promise.all([
+      mcp('list_records_for_table',{baseId:AT.base,tableId:AT.IT}),
+      mcp('list_records_for_table',{baseId:AT.base,tableId:AT.PT})
+    ]);
+    S.provMap={};
+    (pRes.records||[]).forEach(r=>{const f=r.cellValuesByFieldId||r.fields||{};S.provMap[r.id]=f[AT.P.name]||'';});
+    S.insumos=(iRes.records||[]).map(parseInsumo).filter(i=>i.insumo);
+    S.costesOk=true;
+  }catch(err){S.costesOk=false;S.insumos=[];}
   S.loading=false;renderApp();
 }
 
