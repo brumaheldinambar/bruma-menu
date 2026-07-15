@@ -141,7 +141,7 @@ const S={
   pendingNotes:{}, _toastTimer:null, needToken:false,
   insumos:[], provMap:{}, costesOk:true,
   fCNivel:'todos', fCTipo:'todos', costGroup:6, costExp:{},
-  search:'', showAddInsumo:false, showAddProv:false, insumoForm:null, provForm:null
+  search:'', showFilters:false, showAddInsumo:false, showAddProv:false, insumoForm:null, provForm:null
 };
 
 // ─── TOAST ────────────────────────────────────────────────
@@ -181,19 +181,70 @@ function filteredM(){
     return true;
   });
 }
-// ─── SEARCH BAR (compartida por las tres pestañas) ────────
+// ─── TOOLBAR: búsqueda + botón de filtros (las tres pestañas) ──
 function searchInput(v){
   S.search=v;renderApp();
   const el=document.getElementById('search-input');
   if(el){el.focus();const n=el.value.length;el.setSelectionRange(n,n);}
 }
+const FILTER_DEFS={
+  cocktails:[
+    {key:'fTipo',label:'Estilo',type:'single',color:'amber',tags:tipoTags,labels:['De autor','Clásico']},
+    {key:'fLicor',label:'Licor',type:'multi',color:'green',tags:licorTags},
+    {key:'fNivel',label:'Nivel',type:'single',color:'amber',tags:nivelTags,labels:NIVELES.map(n=>n.label)}
+  ],
+  mocktails:[
+    {key:'fMTipo',label:'Categoría',type:'single',color:'amber',tags:mTipoTags},
+    {key:'fMPerf',label:'Perfil',type:'single',color:'green',tags:mPerfilTags},
+    {key:'fMNivel',label:'Nivel',type:'single',color:'amber',tags:nivelTags,labels:NIVELES.map(n=>n.label)}
+  ],
+  costes:[
+    {key:'fCTipo',label:'Tipo',type:'single',color:'green',tags:['cocteles','mocktails'],labels:['Cócteles','Mocktails']},
+    {key:'fCNivel',label:'Nivel',type:'single',color:'amber',tags:nivelTags,labels:NIVELES.map(n=>n.label)}
+  ]
+};
+const capTxt=v=>String(v).charAt(0).toUpperCase()+String(v).slice(1);
+function activeChips(){
+  const chips=[];
+  for(const d of (FILTER_DEFS[S.tab]||[])){
+    const v=S[d.key];
+    if(d.type==='multi'){(v||[]).forEach(val=>chips.push({key:d.key,val,label:d.label+': '+capTxt(val)}));}
+    else if(v&&v!=='todos'){const i=d.tags.indexOf(v);chips.push({key:d.key,val:v,label:d.label+': '+((d.labels&&d.labels[i])||capTxt(v))});}
+  }
+  return chips;
+}
+function removeChip(key,val){
+  const d=(FILTER_DEFS[S.tab]||[]).find(x=>x.key===key);
+  if(!d)return;
+  if(d.type==='multi')toggleFilter(key,val);else setFilter(key,'todos');
+}
+function toggleFilters(){S.showFilters=!S.showFilters;renderApp();}
 function buildSearchBar(){
-  return `<div style="display:flex;align-items:center;gap:10px;padding:18px 0 0">
-    <div style="position:relative;flex:1;max-width:420px">
-      <span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:${C.cremaMid};font-size:14px;pointer-events:none">⌕</span>
-      <input id="search-input" type="search" value="${esc(S.search)}" oninput="searchInput(this.value)" placeholder="Buscar por nombre o ingrediente…" style="${iSt};padding-left:34px;min-height:42px"/>
+  const chips=activeChips();
+  const defs=FILTER_DEFS[S.tab]||[];
+  const lupa=`<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="${C.cremaMid}" stroke-width="2" stroke-linecap="round" style="position:absolute;left:11px;top:50%;transform:translateY(-50%) scaleX(-1);pointer-events:none"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.3" y1="15.3" x2="21" y2="21"/></svg>`;
+  const panel=!S.showFilters?'':`<div style="border:1px solid ${C.border};border-radius:10px;padding:16px 18px 8px;margin-top:12px;background:${C.surface};animation:fadeIn 0.18s ease">
+    ${defs.map(d=>d.type==='multi'
+      ?filterRow(d.label,d.color,d.tags,d.labels||null,S[d.key],d.key)
+      :radioRow(d.label,d.color,d.tags,d.labels||null,S[d.key],d.key)).join('')}
+  </div>`;
+  const chipsHtml=!chips.length?'':`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+    ${chips.map(c=>`<span style="display:inline-flex;align-items:center;gap:7px;background:${C.ambarBg};color:${C.ambarFg};border:1px solid ${C.ambar}44;border-radius:999px;padding:5px 6px 5px 13px;font-size:12px;letter-spacing:0.05em">${esc(c.label)}<button onclick="removeChip('${c.key}','${esc(c.val)}')" title="Quitar filtro" style="background:${C.ambar}22;border:none;border-radius:50%;width:20px;height:20px;color:${C.ambarFg};font-size:11px;line-height:1;display:inline-flex;align-items:center;justify-content:center">✕</button></span>`).join('')}
+  </div>`;
+  return `<div style="padding:18px 0 0">
+    <div style="display:flex;align-items:stretch;gap:10px;flex-wrap:wrap">
+      <div style="position:relative;flex:1;min-width:220px;max-width:420px">
+        ${lupa}
+        <input id="search-input" type="search" value="${esc(S.search)}" oninput="searchInput(this.value)" placeholder="Buscar por nombre o ingrediente…" style="${iSt};padding-left:44px;min-height:46px"/>
+      </div>
+      <button onclick="toggleFilters()" aria-expanded="${S.showFilters}" style="display:inline-flex;align-items:center;gap:9px;background:${S.showFilters||chips.length?C.ambarBg:'transparent'};border:1.5px solid ${S.showFilters||chips.length?C.ambar:C.border};border-radius:6px;color:${S.showFilters||chips.length?C.ambarFg:C.cremaMid};padding:0 18px;font-size:12px;letter-spacing:0.1em;text-transform:uppercase;font-weight:${chips.length?700:400};min-height:46px">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.5 10 19 14 21 14 12.5 22 3"/></svg>
+        Filtros${chips.length?` · ${chips.length}`:''} <span style="font-size:10px">${S.showFilters?'▲':'▼'}</span>
+      </button>
+      ${S.search?`<button onclick="searchInput('')" style="background:transparent;border:1px solid ${C.border};border-radius:6px;color:${C.cremaMid};padding:0 14px;font-size:12px;min-height:46px">✕ Limpiar</button>`:''}
     </div>
-    ${S.search?`<button onclick="searchInput('')" style="background:transparent;border:1px solid ${C.border};border-radius:6px;color:${C.cremaMid};padding:8px 14px;font-size:12px;min-height:36px">✕ Limpiar</button>`:''}
+    ${chipsHtml}
+    ${panel}
   </div>`;
 }
 function countLine(shown,total,palabra){
@@ -414,29 +465,23 @@ function buildEditModal(){
 function buildCocktailsTab(){
   const drinks=filteredC();
   return `<div style="animation:fadeIn 0.3s ease">
-    <div style="padding:20px 0 18px;border-bottom:1px solid ${C.border}">
-      ${radioRow('Estilo','amber',tipoTags,['De autor','Clásico'],S.fTipo,'fTipo')}
-      ${filterRow('Licor','green',licorTags,null,S.fLicor,'fLicor')}
-      ${radioRow('Nivel','amber',nivelTags,NIVELES.map(n=>n.label),S.fNivel,'fNivel')}
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 0 12px;border-bottom:1px solid ${C.border}">
       ${countLine(drinks.length,S.cocktails.length,'cócteles')}
+      ${!S.showAddC?`<button onclick="openAddForm(false)" style="background:transparent;border:1px dashed ${C.ambar}66;border-radius:8px;color:${C.ambar};padding:11px 20px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;min-height:44px">+ Agregar cóctel</button>`:''}
     </div>
     ${S.showAddC?`<div style="padding-top:22px">${buildForm(false,false)}</div>`:''}
-    <div>${S.cocktails.length===0?'':drinks.length===0?`<p style="padding:52px 0;text-align:center;color:${C.cremaMid};font-size:16px">Sin resultados para los filtros seleccionados.</p>`:drinks.map(ct=>drinkCard(ct,false)).join('')}</div>
-    ${!S.showAddC?`<button onclick="openAddForm(false)" style="margin-top:30px;background:transparent;border:1px dashed ${C.ambar}44;border-radius:8px;color:${C.ambar};padding:15px 24px;width:100%;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;min-height:52px">+ Agregar cóctel</button>`:''}
+    <div>${S.cocktails.length===0?'':drinks.length===0?`<p style="padding:52px 0;text-align:center;color:${C.cremaMid};font-size:16px">Sin resultados para la búsqueda o filtros seleccionados.</p>`:drinks.map(ct=>drinkCard(ct,false)).join('')}</div>
   </div>`;
 }
 function buildMocktailsTab(){
   const drinks=filteredM();
   return `<div style="animation:fadeIn 0.3s ease">
-    <div style="padding:20px 0 18px;border-bottom:1px solid ${C.border}">
-      ${radioRow('Categoría','amber',mTipoTags,null,S.fMTipo,'fMTipo')}
-      ${radioRow('Perfil','green',mPerfilTags,null,S.fMPerf,'fMPerf')}
-      ${radioRow('Nivel','amber',nivelTags,NIVELES.map(n=>n.label),S.fMNivel,'fMNivel')}
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 0 12px;border-bottom:1px solid ${C.border}">
       ${countLine(drinks.length,S.mocktails.length,'mocktails')}
+      ${!S.showAddM?`<button onclick="openAddForm(true)" style="background:transparent;border:1px dashed ${C.verde}66;border-radius:8px;color:${C.verde};padding:11px 20px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;min-height:44px">+ Agregar mocktail</button>`:''}
     </div>
     ${S.showAddM?`<div style="padding-top:22px">${buildForm(true,false)}</div>`:''}
-    <div>${S.mocktails.length===0?'':drinks.length===0?`<p style="padding:52px 0;text-align:center;color:${C.cremaMid};font-size:16px">Sin resultados para los filtros seleccionados.</p>`:drinks.map(m=>drinkCard(m,true)).join('')}</div>
-    ${!S.showAddM?`<button onclick="openAddForm(true)" style="margin-top:30px;background:transparent;border:1px dashed ${C.verde}44;border-radius:8px;color:${C.verde};padding:15px 24px;width:100%;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;min-height:52px">+ Agregar mocktail</button>`:''}
+    <div>${S.mocktails.length===0?'':drinks.length===0?`<p style="padding:52px 0;text-align:center;color:${C.cremaMid};font-size:16px">Sin resultados para la búsqueda o filtros seleccionados.</p>`:drinks.map(m=>drinkCard(m,true)).join('')}</div>
   </div>`;
 }
 
@@ -567,18 +612,16 @@ function buildCostesTab(){
   const tiles=[['✓ Costo real completo',`${conReal} de ${results.length}`],['Con datos parciales',`${conDatos-conReal}`],['Precio sugerido prom.',fmtCOP(promPrecio)],['Margen promedio',`${(promMargen*100).toFixed(1)}%`]]
     .map(([l,v])=>`<div style="background:${C.surface};border:1px solid ${C.border};border-top:3px solid ${C.ambarSolid};border-radius:8px;padding:14px 16px"><div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:${C.cremaMid};margin-bottom:6px">${l}</div><div style="font-size:19px;font-weight:600;color:${C.crema}">${v}</div></div>`).join('');
   return `<div style="animation:fadeIn 0.3s ease">
-    <div style="padding:20px 0 18px;border-bottom:1px solid ${C.border}">
-      ${radioRow('Tipo','green',['cocteles','mocktails'],['Cócteles','Mocktails'],S.fCTipo,'fCTipo')}
-      ${radioRow('Nivel','amber',nivelTags,NIVELES.map(n=>n.label),S.fCNivel,'fCNivel')}
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 0 14px;border-bottom:1px solid ${C.border}">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${C.ambar};font-weight:700;min-width:68px">Grupo</span>
+        <span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${C.ambar};font-weight:700">Grupo</span>
         <input type="number" min="6" value="${S.costGroup}" onchange="setCostGroup(this.value)" style="${iSt};width:90px;min-height:36px"/>
         <span style="font-size:12px;color:${C.cremaMid}">personas (mín. 6)${volumeEff(S.costGroup)?` · eficiencia por volumen −${Math.round(volumeEff(S.costGroup)*100)}%`:''}</span>
       </div>
       ${countLine(results.length,totalAll,'tragos')}
-      ${banner}
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px">
+    ${banner}
+    <div style="display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:18px">
       <button onclick="openAddInsumo()" style="background:transparent;border:1px dashed ${C.ambar}66;border-radius:8px;color:${C.ambar};padding:11px 20px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;min-height:44px">+ Agregar insumo</button>
       <button onclick="openAddProv()" style="background:transparent;border:1px dashed ${C.verde}66;border-radius:8px;color:${C.verde};padding:11px 20px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;min-height:44px">+ Agregar proveedor</button>
     </div>
