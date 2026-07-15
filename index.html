@@ -140,7 +140,8 @@ const S={
   expanded:{}, form:null, loading:true, saving:false,
   pendingNotes:{}, _toastTimer:null, needToken:false,
   insumos:[], provMap:{}, costesOk:true,
-  fCNivel:'todos', costGroup:15, costExp:{}
+  fCNivel:'todos', fCTipo:'todos', costGroup:6, costExp:{},
+  search:'', showAddInsumo:false, showAddProv:false, insumoForm:null, provForm:null
 };
 
 // ─── TOAST ────────────────────────────────────────────────
@@ -156,8 +157,15 @@ function showToast(msg,isError=false){
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
 // ─── FILTERS ─────────────────────────────────────────────
+function matchSearch(d){
+  if(!S.search)return true;
+  const q=S.search.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const hay=(d.name+' '+(d.ingredientes||[]).join(' ')).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  return hay.includes(q);
+}
 function filteredC(){
   return S.cocktails.filter(ct=>{
+    if(!matchSearch(ct))return false;
     if(S.fTipo!=='todos'&&ct.type!==S.fTipo)return false;
     if(S.fNivel!=='todos'&&ct.nivel!==S.fNivel)return false;
     if(S.fLicor.length&&!S.fLicor.some(l=>(ct.licor||[]).includes(l)))return false;
@@ -166,11 +174,31 @@ function filteredC(){
 }
 function filteredM(){
   return S.mocktails.filter(m=>{
+    if(!matchSearch(m))return false;
     if(S.fMTipo!=='todos'&&m.tipo!==S.fMTipo)return false;
     if(S.fMPerf!=='todos'&&m.perfil!==S.fMPerf)return false;
     if(S.fMNivel!=='todos'&&m.nivel!==S.fMNivel)return false;
     return true;
   });
+}
+// ─── SEARCH BAR (compartida por las tres pestañas) ────────
+function searchInput(v){
+  S.search=v;renderApp();
+  const el=document.getElementById('search-input');
+  if(el){el.focus();const n=el.value.length;el.setSelectionRange(n,n);}
+}
+function buildSearchBar(){
+  return `<div style="display:flex;align-items:center;gap:10px;padding:18px 0 0">
+    <div style="position:relative;flex:1;max-width:420px">
+      <span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:${C.cremaMid};font-size:14px;pointer-events:none">⌕</span>
+      <input id="search-input" type="search" value="${esc(S.search)}" oninput="searchInput(this.value)" placeholder="Buscar por nombre o ingrediente…" style="${iSt};padding-left:34px;min-height:42px"/>
+    </div>
+    ${S.search?`<button onclick="searchInput('')" style="background:transparent;border:1px solid ${C.border};border-radius:6px;color:${C.cremaMid};padding:8px 14px;font-size:12px;min-height:36px">✕ Limpiar</button>`:''}
+  </div>`;
+}
+function countLine(shown,total,palabra){
+  const filtrado=shown<total;
+  return `<p style="font-size:12px;color:${filtrado?C.ambar:C.cremaMid};margin:10px 0 0;letter-spacing:0.04em">${filtrado?`Mostrando <strong>${shown}</strong> de ${total} ${palabra}`:`${total} ${palabra}`}</p>`;
 }
 
 // ─── SHARED STYLES ───────────────────────────────────────
@@ -269,9 +297,10 @@ function drinkCard(drink,isMocktail){
   return `<div id="card-${drink.id}" style="border-bottom:1px solid ${C.border};padding:24px 0">
     <div onclick="toggleCard('${drink.id}')" onkeydown="if(event.key==='Enter')toggleCard('${drink.id}')" role="button" tabindex="0" style="display:flex;justify-content:space-between;align-items:flex-start;cursor:pointer;gap:12px">
       <div style="flex:1;min-width:0">
+        <div style="font-family:${fontT};font-size:22px;color:${C.crema};letter-spacing:0.01em;line-height:1.2;margin-bottom:7px">${esc(drink.name)}</div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-          <span style="font-family:${fontT};font-size:22px;color:${C.crema};letter-spacing:0.01em;line-height:1.2">${esc(drink.name)}</span>
           ${nivelBadge(drink.nivel)}${typePart}
+          ${drink.puntuacion?`<span title="${drink.puntuacion}/5" style="font-size:13px;letter-spacing:2px;line-height:1"><span style="color:${C.ambarSolid}">${'★'.repeat(drink.puntuacion)}</span><span style="color:#ECDCC6">${'★'.repeat(5-drink.puntuacion)}</span></span>`:''}
         </div>
         ${drink.description?`<p style="margin:0;font-size:15px;color:${C.cremaMid};line-height:1.6">${esc(drink.description)}</p>`:''}
       </div>
@@ -389,6 +418,7 @@ function buildCocktailsTab(){
       ${radioRow('Estilo','amber',tipoTags,['De autor','Clásico'],S.fTipo,'fTipo')}
       ${filterRow('Licor','green',licorTags,null,S.fLicor,'fLicor')}
       ${radioRow('Nivel','amber',nivelTags,NIVELES.map(n=>n.label),S.fNivel,'fNivel')}
+      ${countLine(drinks.length,S.cocktails.length,'cócteles')}
     </div>
     ${S.showAddC?`<div style="padding-top:22px">${buildForm(false,false)}</div>`:''}
     <div>${S.cocktails.length===0?'':drinks.length===0?`<p style="padding:52px 0;text-align:center;color:${C.cremaMid};font-size:16px">Sin resultados para los filtros seleccionados.</p>`:drinks.map(ct=>drinkCard(ct,false)).join('')}</div>
@@ -400,8 +430,9 @@ function buildMocktailsTab(){
   return `<div style="animation:fadeIn 0.3s ease">
     <div style="padding:20px 0 18px;border-bottom:1px solid ${C.border}">
       ${radioRow('Categoría','amber',mTipoTags,null,S.fMTipo,'fMTipo')}
-      ${filterRow('Perfil','green',mPerfilTags,null,S.fMPerf,'fMPerf')}
+      ${radioRow('Perfil','green',mPerfilTags,null,S.fMPerf,'fMPerf')}
       ${radioRow('Nivel','amber',nivelTags,NIVELES.map(n=>n.label),S.fMNivel,'fMNivel')}
+      ${countLine(drinks.length,S.mocktails.length,'mocktails')}
     </div>
     ${S.showAddM?`<div style="padding-top:22px">${buildForm(true,false)}</div>`:''}
     <div>${S.mocktails.length===0?'':drinks.length===0?`<p style="padding:52px 0;text-align:center;color:${C.cremaMid};font-size:16px">Sin resultados para los filtros seleccionados.</p>`:drinks.map(m=>drinkCard(m,true)).join('')}</div>
@@ -470,15 +501,18 @@ function drinkCost(d){
 }
 
 // ─── COSTES · pestaña ─────────────────────────────────────
-function setCostGroup(v){S.costGroup=Math.max(1,Number(v)||1);renderApp();}
+function setCostGroup(v){S.costGroup=Math.max(6,Number(v)||6);renderApp();}
 function toggleCost(id){S.costExp[id]=!S.costExp[id];renderApp();}
 function costRow(d,isM){
   const r=drinkCost(d);
   const exp=!!S.costExp[d.id];
   const catBadge=`<span style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;font-weight:600;color:${isM?C.verde:C.ambar};border:1px solid ${isM?C.verde:C.ambar}44;border-radius:3px;padding:2px 7px">${isM?'Mocktail':'Cóctel'}</span>`;
-  const srcBadge=r.estimado
-    ?`<span title="Sin insumos vinculados — usa el estimado por nivel" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;background:${C.pruebaBg};color:${C.pruebaFg};border-radius:3px;padding:2px 7px">Estimado</span>`
-    :`<span title="${r.matched} ingrediente(s) con precio de proveedor" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;background:${C.halobg};color:${C.haloFg};border-radius:3px;padding:2px 7px">Proveedores ${r.matched}/${r.items.length}</span>`;
+  const esReal=!r.estimado&&r.items.length>0&&r.items.every(it=>it.ins&&it.ok);
+  const srcBadge=esReal
+    ?`<span title="Todos los ingredientes tienen precio de proveedor" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;background:${C.halobg};color:${C.haloFg};border:1px solid ${C.haloFg}44;border-radius:3px;padding:2px 7px">✓ Costo real</span>`
+    :(r.estimado
+      ?`<span title="Sin insumos vinculados — usa el estimado por nivel" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;background:${C.pruebaBg};color:${C.pruebaFg};border-radius:3px;padding:2px 7px">Estimado</span>`
+      :`<span title="Solo ${r.matched} de ${r.items.length} ingredientes tienen precio — costo incompleto" style="font-size:10px;letter-spacing:0.08em;text-transform:uppercase;background:${C.ambarBg};color:${C.ambarFg};border-radius:3px;padding:2px 7px">Parcial ${r.matched}/${r.items.length}</span>`);
   const detail=!exp?'':`<div style="margin-top:14px;padding-top:14px;border-top:1px solid ${C.border};animation:fadeIn 0.2s ease">
     <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:14px">
       <thead><tr>
@@ -515,9 +549,13 @@ function costRow(d,isM){
   </div>`;
 }
 function buildCostesTab(){
+  const totalAll=S.cocktails.length+S.mocktails.length;
   const all=[...S.cocktails.map(d=>({d,isM:false})),...S.mocktails.map(d=>({d,isM:true}))]
+    .filter(x=>matchSearch(x.d))
+    .filter(x=>S.fCTipo==='todos'||(S.fCTipo==='cocteles'?!x.isM:x.isM))
     .filter(x=>S.fCNivel==='todos'||x.d.nivel===S.fCNivel);
   const results=all.map(x=>({...x,r:drinkCost(x.d)}));
+  const conReal=results.filter(x=>!x.r.estimado&&x.r.items.length>0&&x.r.items.every(it=>it.ins&&it.ok)).length;
   const conDatos=results.filter(x=>!x.r.estimado).length;
   const promMargen=results.length?results.reduce((s,x)=>s+x.r.margenPct,0)/results.length:0;
   const promPrecio=results.length?results.reduce((s,x)=>s+x.r.precioSugerido,0)/results.length:0;
@@ -526,22 +564,98 @@ function buildCostesTab(){
     ?`<div style="background:${C.deleteBg};border:1px solid #DCA086;border-radius:8px;padding:14px 18px;margin:20px 0 0;font-size:13px;line-height:1.6;color:${C.deleteFg}">No pude leer las tablas <strong>Insumos</strong> / <strong>Proveedores</strong>. Si tu token de Airtable es anterior a la creación de esas tablas, créalo de nuevo (el acceso por base las incluye automáticamente).</div>`
     :(S.insumos.length===0
       ?`<div style="background:${C.ambarBg};border:1px solid ${C.ambar}55;border-radius:8px;padding:14px 18px;margin:20px 0 0;font-size:13px;line-height:1.6;color:${C.ambarFg}">La tabla <strong>Insumos</strong> de Airtable está vacía — todos los costos usan el estimado por nivel (Halo ${fmtCOP(COSTM.baseEst.halo)} · Ámbar ${fmtCOP(COSTM.baseEst.ambar)}). Agrega insumos con precio y proveedor para ver costos reales por ingrediente.</div>`:'');
-  const tiles=[['Tragos con costo real',`${conDatos} de ${results.length}`],['Costo promedio',fmtCOP(promCosto)],['Precio sugerido prom.',fmtCOP(promPrecio)],['Margen promedio',`${(promMargen*100).toFixed(1)}%`]]
+  const tiles=[['✓ Costo real completo',`${conReal} de ${results.length}`],['Con datos parciales',`${conDatos-conReal}`],['Precio sugerido prom.',fmtCOP(promPrecio)],['Margen promedio',`${(promMargen*100).toFixed(1)}%`]]
     .map(([l,v])=>`<div style="background:${C.surface};border:1px solid ${C.border};border-top:3px solid ${C.ambarSolid};border-radius:8px;padding:14px 16px"><div style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:${C.cremaMid};margin-bottom:6px">${l}</div><div style="font-size:19px;font-weight:600;color:${C.crema}">${v}</div></div>`).join('');
   return `<div style="animation:fadeIn 0.3s ease">
     <div style="padding:20px 0 18px;border-bottom:1px solid ${C.border}">
+      ${radioRow('Tipo','green',['cocteles','mocktails'],['Cócteles','Mocktails'],S.fCTipo,'fCTipo')}
       ${radioRow('Nivel','amber',nivelTags,NIVELES.map(n=>n.label),S.fCNivel,'fCNivel')}
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:${C.ambar};font-weight:700;min-width:68px">Grupo</span>
-        <input type="number" min="1" value="${S.costGroup}" onchange="setCostGroup(this.value)" style="${iSt};width:90px;min-height:36px"/>
-        <span style="font-size:12px;color:${C.cremaMid}">personas${volumeEff(S.costGroup)?` · eficiencia por volumen −${Math.round(volumeEff(S.costGroup)*100)}%`:''}</span>
+        <input type="number" min="6" value="${S.costGroup}" onchange="setCostGroup(this.value)" style="${iSt};width:90px;min-height:36px"/>
+        <span style="font-size:12px;color:${C.cremaMid}">personas (mín. 6)${volumeEff(S.costGroup)?` · eficiencia por volumen −${Math.round(volumeEff(S.costGroup)*100)}%`:''}</span>
       </div>
+      ${countLine(results.length,totalAll,'tragos')}
       ${banner}
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px">
+      <button onclick="openAddInsumo()" style="background:transparent;border:1px dashed ${C.ambar}66;border-radius:8px;color:${C.ambar};padding:11px 20px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;min-height:44px">+ Agregar insumo</button>
+      <button onclick="openAddProv()" style="background:transparent;border:1px dashed ${C.verde}66;border-radius:8px;color:${C.verde};padding:11px 20px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;min-height:44px">+ Agregar proveedor</button>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:22px 0 6px">${tiles}</div>
     <div>${results.length===0?`<p style="padding:52px 0;text-align:center;color:${C.cremaMid};font-size:16px">Sin tragos para el nivel seleccionado.</p>`:results.map(x=>costRow(x.d,x.isM)).join('')}</div>
     <p style="margin-top:22px;font-size:12px;color:${C.cremaMid};line-height:1.6">Modelo: costo de insumos (precios de proveedores en Airtable, o estimado por nivel si no hay datos) − eficiencia por volumen + 15% overhead × multiplicador por nivel (Halo 3.5 · Ámbar 4.0). Edita insumos y precios en la tabla <strong>Insumos</strong> de Airtable.</p>
   </div>`;
+}
+
+// ─── COSTES · alta de insumos y proveedores desde la app ──
+function openAddInsumo(){S.insumoForm={unidad:'ml'};S.showAddInsumo=true;renderApp();}
+function openAddProv(){S.provForm={};S.showAddProv=true;renderApp();}
+function closeCostModals(){S.showAddInsumo=false;S.showAddProv=false;S.insumoForm=null;S.provForm=null;renderApp();}
+const selSt=`background:${'#F9F2E7'};border:1px solid ${'#ECDCC6'};border-radius:6px;color:${'#0C1C17'};padding:10px 13px;font-size:15px;width:100%;min-height:44px`;
+function buildInsumoModal(){
+  const provOpts=Object.entries(S.provMap).map(([id,n])=>`<option value="${esc(id)}">${esc(n)}</option>`).join('');
+  return `<div role="dialog" aria-modal="true" style="position:fixed;inset:0;background:rgba(12,28,23,.45);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:999;padding:20px;animation:fadeIn 0.18s ease">
+    <div style="background:${C.surface};border:1px solid ${C.border};border-radius:10px;padding:28px;width:100%;max-width:520px;max-height:92vh;overflow-y:auto">
+      <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:${C.ambar};margin-bottom:6px;font-weight:700">+ Agregar insumo</div>
+      <p style="font-size:12px;color:${C.cremaMid};margin-bottom:18px;line-height:1.5">El nombre debe coincidir con cómo aparece en los ingredientes de las recetas (ej. "Cordial de saúco").</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div style="grid-column:1/-1"><label style="${lSt}">Insumo *</label><input style="${iSt}" oninput="S.insumoForm.nombre=this.value" placeholder="Ej. Licor de hibisco"/></div>
+        <div style="grid-column:1/-1"><label style="${lSt}">Proveedor</label><select style="${selSt}" onchange="S.insumoForm.provId=this.value"><option value="">— Sin proveedor —</option>${provOpts}</select></div>
+        <div style="grid-column:1/-1"><label style="${lSt}">Presentación</label><input style="${iSt}" oninput="S.insumoForm.presentacion=this.value" placeholder="Ej. Botella 700ml"/></div>
+        <div><label style="${lSt}">Precio COP *</label><input type="number" min="0" style="${iSt}" oninput="S.insumoForm.precio=this.value" placeholder="49900"/></div>
+        <div><label style="${lSt}">Cantidad *</label><input type="number" min="0" step="0.1" style="${iSt}" oninput="S.insumoForm.cantidad=this.value" placeholder="700"/></div>
+        <div><label style="${lSt}">Unidad</label><select style="${selSt}" onchange="S.insumoForm.unidad=this.value"><option value="ml">ml</option><option value="g">g</option><option value="un">un</option></select></div>
+        <div><label style="${lSt}">URL del producto</label><input style="${iSt}" oninput="S.insumoForm.url=this.value" placeholder="https://…"/></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:22px">
+        <button id="insumo-save-btn" onclick="saveInsumo()" style="background:${C.ambarSolid};color:${C.crema};border:none;border-radius:6px;padding:13px 26px;font-size:14px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;min-height:48px">Guardar</button>
+        <button onclick="closeCostModals()" style="background:transparent;color:${C.cremaMid};border:1px solid ${C.border};border-radius:6px;padding:13px 22px;font-size:14px;min-height:48px">Cancelar</button>
+      </div>
+    </div>
+  </div>`;
+}
+function buildProvModal(){
+  return `<div role="dialog" aria-modal="true" style="position:fixed;inset:0;background:rgba(12,28,23,.45);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:999;padding:20px;animation:fadeIn 0.18s ease">
+    <div style="background:${C.surface};border:1px solid ${C.border};border-radius:10px;padding:28px;width:100%;max-width:460px">
+      <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:${C.verde};margin-bottom:18px;font-weight:700">+ Agregar proveedor</div>
+      <div style="display:grid;gap:14px">
+        <div><label style="${lSt}">Nombre *</label><input style="${iSt}" oninput="S.provForm.nombre=this.value" placeholder="Ej. Distribuidora Andina"/></div>
+        <div><label style="${lSt}">Web</label><input style="${iSt}" oninput="S.provForm.web=this.value" placeholder="https://…"/></div>
+        <div><label style="${lSt}">Contacto</label><input style="${iSt}" oninput="S.provForm.contacto=this.value" placeholder="Teléfono, email o persona"/></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:22px">
+        <button id="prov-save-btn" onclick="saveProv()" style="background:${C.ambarSolid};color:${C.crema};border:none;border-radius:6px;padding:13px 26px;font-size:14px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;min-height:48px">Guardar</button>
+        <button onclick="closeCostModals()" style="background:transparent;color:${C.cremaMid};border:1px solid ${C.border};border-radius:6px;padding:13px 22px;font-size:14px;min-height:48px">Cancelar</button>
+      </div>
+    </div>
+  </div>`;
+}
+async function saveInsumo(){
+  const f=S.insumoForm||{};
+  if(!f.nombre||!f.nombre.trim()){showToast('El nombre del insumo es obligatorio',true);return;}
+  if(!(Number(f.precio)>0)||!(Number(f.cantidad)>0)){showToast('Precio y cantidad deben ser mayores a 0',true);return;}
+  const btn=document.getElementById('insumo-save-btn');if(btn){btn.textContent='Guardando…';btn.disabled=true;}
+  const fields={[AT.I.insumo]:f.nombre.trim(),[AT.I.presentacion]:f.presentacion||'',[AT.I.precio]:Number(f.precio),[AT.I.cantidad]:Number(f.cantidad),[AT.I.unidad]:f.unidad||'ml',[AT.I.url]:f.url||'',[AT.I.fuente]:'Manual',[AT.I.fecha]:new Date().toISOString().slice(0,10)};
+  if(f.provId)fields[AT.I.proveedor]=[f.provId];
+  try{
+    const res=await mcp('create_records_for_table',{baseId:AT.base,tableId:AT.IT,typecast:true,records:[{fields}]});
+    S.insumos.push({id:res.records[0].id,insumo:f.nombre.trim(),presentacion:f.presentacion||'',precio:Number(f.precio),cantidad:Number(f.cantidad),unidad:f.unidad||'ml',cpu:Number(f.precio)/Number(f.cantidad),proveedor:S.provMap[f.provId]||'',url:f.url||'',fuente:'Manual',fecha:new Date().toISOString().slice(0,10)});
+    closeCostModals();showToast('✦ Insumo guardado en Airtable');
+  }catch(err){if(btn){btn.textContent='Guardar';btn.disabled=false;}showToast('Error: '+err.message,true);}
+}
+async function saveProv(){
+  const f=S.provForm||{};
+  if(!f.nombre||!f.nombre.trim()){showToast('El nombre del proveedor es obligatorio',true);return;}
+  const btn=document.getElementById('prov-save-btn');if(btn){btn.textContent='Guardando…';btn.disabled=true;}
+  const fields={[AT.P.name]:f.nombre.trim()};
+  if(f.web)fields['fldlucNed0HHSx3kj']=f.web;
+  if(f.contacto)fields['fldxO8z8L3syTtNEg']=f.contacto;
+  try{
+    const res=await mcp('create_records_for_table',{baseId:AT.base,tableId:AT.PT,typecast:true,records:[{fields}]});
+    S.provMap[res.records[0].id]=f.nombre.trim();
+    closeCostModals();showToast('✦ Proveedor guardado en Airtable');
+  }catch(err){if(btn){btn.textContent='Guardar';btn.disabled=false;}showToast('Error: '+err.message,true);}
 }
 
 // ─── TOKEN GATE (solo modo navegador, sin Cowork) ─────────
@@ -598,9 +712,9 @@ function renderApp(){
   const tabs=`<nav style="display:flex;justify-content:center;border-bottom:1px solid ${C.border};max-width:880px;margin:0 auto">
     ${[{key:'cocktails',label:'Cócteles',count:S.cocktails.length},{key:'mocktails',label:'Mocktails',count:S.mocktails.length},{key:'costes',label:'Costes',count:S.insumos.length}].map(t=>`<button onclick="switchTab('${t.key}')" role="tab" aria-selected="${S.tab===t.key}" style="background:none;border:none;border-bottom:${S.tab===t.key?`2px solid ${C.ambar}`:'2px solid transparent'};color:${S.tab===t.key?C.crema:C.cremaMid};padding:20px 36px;font-size:13px;font-weight:${S.tab===t.key?700:400};letter-spacing:0.14em;text-transform:uppercase;transition:all 0.2s;margin-bottom:-1px;min-height:60px">${t.label}<span style="margin-left:8px;font-size:11px;color:${S.tab===t.key?C.ambar:C.cremaMid+'66'};font-weight:400">${t.count}</span></button>`).join('')}
   </nav>`;
-  const main=`<main style="max-width:880px;margin:0 auto;padding:0 24px">${S.tab==='cocktails'?buildCocktailsTab():S.tab==='mocktails'?buildMocktailsTab():buildCostesTab()}</main>`;
+  const main=`<main style="max-width:880px;margin:0 auto;padding:0 24px">${buildSearchBar()}${S.tab==='cocktails'?buildCocktailsTab():S.tab==='mocktails'?buildMocktailsTab():buildCostesTab()}</main>`;
   const footer=`<footer style="max-width:880px;margin:72px auto 0;padding:0 24px"><div style="border-top:1px solid ${C.border};padding-top:30px;text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:14px"><div style="height:1px;width:36px;background:linear-gradient(to right,transparent,${C.ambar}55)"></div><div style="width:3px;height:3px;border-radius:50%;background:${C.ambar};opacity:.5"></div><div style="height:1px;width:36px;background:linear-gradient(to left,transparent,${C.ambar}55)"></div></div><p style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:${C.cremaMid};margin-bottom:24px">Bruma · Coctelería · Mocktails · Experiencias</p>${!hasCowork()?`<button onclick="clearToken()" style="background:transparent;border:none;color:${C.cremaMid};font-size:11px;letter-spacing:0.1em;text-transform:uppercase;text-decoration:underline;margin-bottom:20px">Cambiar token de Airtable</button>`:''}<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;padding-top:20px;border-top:1px solid ${C.border}">${NIVELES.map(n=>`<div style="display:flex;align-items:center;gap:8px">${nivelBadge(n.value)}<span style="font-size:12px;color:${C.cremaMid}">${esc(n.desc)}</span></div>`).join('')}</div></div></footer>`;
-  document.getElementById('app').innerHTML=header+tabs+main+footer+(S.editing?buildEditModal():'')+(S.confirmDel?buildConfirmModal():'');
+  document.getElementById('app').innerHTML=header+tabs+main+footer+(S.editing?buildEditModal():'')+(S.confirmDel?buildConfirmModal():'')+(S.showAddInsumo?buildInsumoModal():'')+(S.showAddProv?buildProvModal():'');
 }
 
 // ─── ACTIONS ─────────────────────────────────────────────
