@@ -414,6 +414,8 @@ const COSTM={overhead:0.15,mult:{halo:3.5,ambar:4.0,prueba:3.5},baseEst:{halo:80
 function volumeEff(n){if(n>=40)return .20;if(n>=25)return .14;if(n>=15)return .08;return 0;}
 const fmtCOP=n=>new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(Math.round(n||0));
 const normTxt=s=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+// Coincidencia por palabra completa: evita falsos positivos ("ron" en "toronja", "gin" en "ginger")
+const wordIn=(hay,needle)=>needle.length>=3&&new RegExp('(?:^|[^a-z0-9])'+needle.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?:$|[^a-z0-9])').test(hay);
 
 function parseInsumo(r){
   const f=r.cellValuesByFieldId||r.fields||{};
@@ -441,14 +443,15 @@ function parseIngLine(line){
 
 function drinkCost(d){
   const eficiencia=volumeEff(S.costGroup);
+  // El insumo de nombre más largo gana ("Gin botánico" antes que "Gin")
+  const cand=[...S.insumos].sort((a,b)=>(b.insumo||'').length-(a.insumo||'').length);
   const items=[];let costoInsumos=0;let matched=0;
   for(const ln of (d.ingredientes||[])){
     const p=parseIngLine(ln);
-    let ins=null;
-    for(const i of S.insumos){
-      const nn=normTxt(i.insumo);
-      if(nn.length>=3&&(p.name.includes(nn)||nn.includes(p.name))){ins=i;break;}
-    }
+    let ins=cand.find(i=>normTxt(i.insumo)===p.name)
+      ||cand.find(i=>wordIn(p.name,normTxt(i.insumo)))
+      ||cand.find(i=>wordIn(normTxt(i.insumo),p.name))
+      ||null;
     if(ins&&ins.cpu>0){
       const q=ins.unidad==='un'?(p.qty||1):(p.qml||0);
       const c=ins.cpu*q;
