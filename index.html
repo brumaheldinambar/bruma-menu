@@ -21,8 +21,16 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>BRUMA — Menú</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#FDFBF6">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Bruma">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Croissant+One&display=swap" rel="stylesheet">
@@ -37,6 +45,16 @@ body { font-family: 'Cabinet Grotesk',system-ui,-apple-system,'Segoe UI',sans-se
 ::-webkit-scrollbar{width:3px} ::-webkit-scrollbar-thumb{background:#DECBB0;border-radius:2px}
 :focus-visible{outline:3px solid #C87A2A;outline-offset:3px}
 button{cursor:pointer;font-family:inherit}
+/* ─── Tab bar inferior tipo app (solo móvil) ─── */
+.bottom-nav{display:none}
+@media (max-width:640px){
+  .top-tabs{display:none!important}
+  body{padding-bottom:104px}
+  .bottom-nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:rgba(249,242,231,.96);backdrop-filter:blur(10px);border-top:1px solid #ECDCC6;z-index:500;padding:0 0 env(safe-area-inset-bottom)}
+  .bottom-nav button{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px 8px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#8A765A;min-height:56px}
+  .bottom-nav button.active{color:#C87A2A;font-weight:700}
+  .bottom-nav button.active svg{stroke-width:2.2}
+}
 </style>
 </head>
 <body>
@@ -752,12 +770,20 @@ function renderApp(){
     ${divider}
     <button onclick="loadFromAirtable()" title="Recargar desde Airtable" style="margin-top:20px;background:transparent;border:1px solid ${C.ambar}44;border-radius:6px;color:${C.ambar};padding:8px 18px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;min-height:36px">↺ Recargar</button>
   </header>`;
-  const tabs=`<nav style="display:flex;justify-content:center;border-bottom:1px solid ${C.border};max-width:880px;margin:0 auto">
+  const tabs=`<nav class="top-tabs" style="display:flex;justify-content:center;border-bottom:1px solid ${C.border};max-width:880px;margin:0 auto">
     ${[{key:'cocktails',label:'Cócteles',count:S.cocktails.length},{key:'mocktails',label:'Mocktails',count:S.mocktails.length},{key:'costes',label:'Costes',count:S.insumos.length}].map(t=>`<button onclick="switchTab('${t.key}')" role="tab" aria-selected="${S.tab===t.key}" style="background:none;border:none;border-bottom:${S.tab===t.key?`2px solid ${C.ambar}`:'2px solid transparent'};color:${S.tab===t.key?C.crema:C.cremaMid};padding:20px 36px;font-size:13px;font-weight:${S.tab===t.key?700:400};letter-spacing:0.14em;text-transform:uppercase;transition:all 0.2s;margin-bottom:-1px;min-height:60px">${t.label}<span style="margin-left:8px;font-size:11px;color:${S.tab===t.key?C.ambar:C.cremaMid+'66'};font-weight:400">${t.count}</span></button>`).join('')}
   </nav>`;
   const main=`<main style="max-width:880px;margin:0 auto;padding:0 24px">${buildSearchBar()}${S.tab==='cocktails'?buildCocktailsTab():S.tab==='mocktails'?buildMocktailsTab():buildCostesTab()}</main>`;
   const footer=`<footer style="max-width:880px;margin:72px auto 0;padding:0 24px"><div style="border-top:1px solid ${C.border};padding-top:30px;text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:14px"><div style="height:1px;width:36px;background:linear-gradient(to right,transparent,${C.ambar}55)"></div><div style="width:3px;height:3px;border-radius:50%;background:${C.ambar};opacity:.5"></div><div style="height:1px;width:36px;background:linear-gradient(to left,transparent,${C.ambar}55)"></div></div><p style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:${C.cremaMid};margin-bottom:24px">Bruma · Coctelería · Mocktails · Experiencias</p>${!hasCowork()?`<button onclick="clearToken()" style="background:transparent;border:none;color:${C.cremaMid};font-size:11px;letter-spacing:0.1em;text-transform:uppercase;text-decoration:underline;margin-bottom:20px">Cambiar token de Airtable</button>`:''}<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;padding-top:20px;border-top:1px solid ${C.border}">${NIVELES.map(n=>`<div style="display:flex;align-items:center;gap:8px">${nivelBadge(n.value)}<span style="font-size:12px;color:${C.cremaMid}">${esc(n.desc)}</span></div>`).join('')}</div></div></footer>`;
-  document.getElementById('app').innerHTML=header+tabs+main+footer+(S.editing?buildEditModal():'')+(S.confirmDel?buildConfirmModal():'')+(S.showAddInsumo?buildInsumoModal():'')+(S.showAddProv?buildProvModal():'');
+  const NAV_ICONS={
+    cocktails:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16l-8 9z"/><path d="M12 13v6"/><path d="M8 21h8"/></svg>',
+    mocktails:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10l-1.3 18H8.3z"/><path d="M13.5 3.5L17 1"/><path d="M7.6 10h9.5"/></svg>',
+    costes:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 6H9.5a3.2 3.2 0 0 0 0 6.4h5a3.2 3.2 0 0 1 0 6.4H6"/></svg>'
+  };
+  const bottomNav=`<nav class="bottom-nav" aria-label="Navegación">${[
+    {key:'cocktails',label:'Cócteles'},{key:'mocktails',label:'Mocktails'},{key:'costes',label:'Costes'}
+  ].map(t=>`<button onclick="switchTab('${t.key}')" class="${S.tab===t.key?'active':''}" aria-current="${S.tab===t.key}">${NAV_ICONS[t.key]}${t.label}</button>`).join('')}</nav>`;
+  document.getElementById('app').innerHTML=header+tabs+main+footer+bottomNav+(S.editing?buildEditModal():'')+(S.confirmDel?buildConfirmModal():'')+(S.showAddInsumo?buildInsumoModal():'')+(S.showAddProv?buildProvModal():'');
 }
 
 // ─── ACTIONS ─────────────────────────────────────────────
