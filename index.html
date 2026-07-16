@@ -45,15 +45,14 @@ body { font-family: 'Cabinet Grotesk',system-ui,-apple-system,'Segoe UI',sans-se
 ::-webkit-scrollbar{width:3px} ::-webkit-scrollbar-thumb{background:#DECBB0;border-radius:2px}
 :focus-visible{outline:3px solid #C87A2A;outline-offset:3px}
 button{cursor:pointer;font-family:inherit}
-/* ─── Tab bar inferior tipo app (solo móvil) ─── */
+/* ─── Tab bar inferior flotante "liquid glass" (solo móvil) ─── */
 .bottom-nav{display:none}
 @media (max-width:640px){
   .top-tabs{display:none!important}
-  body{padding-bottom:104px}
-  .bottom-nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:rgba(249,242,231,.96);backdrop-filter:blur(10px);border-top:1px solid #ECDCC6;z-index:500;padding:0 0 env(safe-area-inset-bottom)}
-  .bottom-nav button{flex:1;background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px 8px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#8A765A;min-height:56px}
-  .bottom-nav button.active{color:#C87A2A;font-weight:700}
-  .bottom-nav button.active svg{stroke-width:2.2}
+  body{padding-bottom:118px}
+  .bottom-nav{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));display:flex;gap:4px;padding:6px;border-radius:8px;background:rgba(249,242,231,.68);backdrop-filter:blur(24px) saturate(1.7);-webkit-backdrop-filter:blur(24px) saturate(1.7);border:1px solid rgba(255,255,255,.55);box-shadow:0 10px 34px rgba(61,53,39,.22),inset 0 1px 0 rgba(255,255,255,.6);z-index:500;max-width:480px;margin:0 auto}
+  .bottom-nav button{flex:1;background:none;border:none;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 2px 7px;font-size:9.5px;letter-spacing:0.08em;text-transform:uppercase;color:#635643;min-height:54px;transition:background .2s,color .2s}
+  .bottom-nav button.active{background:#1C3329;color:#F5E9DA;font-weight:700}
 }
 </style>
 </head>
@@ -159,7 +158,8 @@ const S={
   pendingNotes:{}, _toastTimer:null, needToken:false,
   insumos:[], provMap:{}, costesOk:true,
   fCNivel:'todos', fCTipo:'todos', costGroup:6, costExp:{},
-  search:'', showFilters:false, showAddInsumo:false, showAddProv:false, insumoForm:null, provForm:null
+  search:'', showFilters:false, showAddInsumo:false, showAddProv:false, insumoForm:null, provForm:null,
+  showAddSheet:false
 };
 
 // ─── TOAST ────────────────────────────────────────────────
@@ -480,9 +480,23 @@ function buildEditModal(){
 }
 
 // ─── TAB CONTENT ─────────────────────────────────────────
+// Segmentado Cócteles/Mocktails dentro de la entrada "Menú"
+function buildMenuSwitch(){
+  const seg=(key,label,n)=>{const a=S.tab===key;return `<button onclick="switchTab('${key}')" aria-selected="${a}" style="flex:1;padding:10px 16px;border-radius:8px;border:none;background:${a?'#1C3329':'transparent'};color:${a?'#F5E9DA':C.cremaMid};font-size:12px;letter-spacing:0.1em;text-transform:uppercase;font-weight:${a?700:400};min-height:44px;transition:all .2s">${label} <span style="opacity:.6;font-weight:400">${n}</span></button>`;};
+  return `<div role="tablist" style="display:flex;gap:4px;background:${C.surface};border:1px solid ${C.border};border-radius:8px;padding:4px;margin-top:16px">${seg('cocktails','Cócteles',S.cocktails.length)}${seg('mocktails','Mocktails',S.mocktails.length)}</div>`;
+}
+function buildEventosTab(){
+  return `<div style="animation:fadeIn .3s ease;text-align:center;padding:70px 20px 40px">
+    <div style="width:88px;margin:0 auto 24px;opacity:.9">${BRUMI_SVG}</div>
+    <h2 style="font-family:${fontT};font-size:26px;color:${C.crema};font-weight:400;margin-bottom:12px">Planeador de eventos</h2>
+    <p style="font-size:15px;color:${C.cremaMid};line-height:1.7;max-width:400px;margin:0 auto 28px">Muy pronto: aquí armaremos Laboratorios y Encuentros — invitados, selección de tragos del menú y costeo automático del evento completo.</p>
+    <span style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:${C.haloFg};background:${C.halobg};border:1px solid ${C.haloFg}33;border-radius:8px;padding:7px 16px">✦ En construcción</span>
+  </div>`;
+}
 function buildCocktailsTab(){
   const drinks=filteredC();
   return `<div style="animation:fadeIn 0.3s ease">
+    ${buildMenuSwitch()}
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 0 12px;border-bottom:1px solid ${C.border}">
       ${countLine(drinks.length,S.cocktails.length,'cócteles')}
       ${!S.showAddC?`<button onclick="openAddForm(false)" style="background:transparent;border:1px dashed ${C.ambar}66;border-radius:8px;color:${C.ambar};padding:11px 20px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;min-height:44px">+ Agregar cóctel</button>`:''}
@@ -494,6 +508,7 @@ function buildCocktailsTab(){
 function buildMocktailsTab(){
   const drinks=filteredM();
   return `<div style="animation:fadeIn 0.3s ease">
+    ${buildMenuSwitch()}
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:16px 0 12px;border-bottom:1px solid ${C.border}">
       ${countLine(drinks.length,S.mocktails.length,'mocktails')}
       ${!S.showAddM?`<button onclick="openAddForm(true)" style="background:transparent;border:1px dashed ${C.verde}66;border-radius:8px;color:${C.verde};padding:11px 20px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;min-height:44px">+ Agregar mocktail</button>`:''}
@@ -746,6 +761,41 @@ function saveToken(){
 }
 function clearToken(){localStorage.removeItem(TOKEN_KEY);S.needToken=true;S.cocktails=[];S.mocktails=[];renderApp();}
 
+// ─── NAV ICONS + HOJA DE AGREGAR ──────────────────────────
+const NAV_ICONS={
+  menu:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h7a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H2z"/><path d="M22 4h-7a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5H22z"/></svg>',
+  costes:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 6H9.5a3.2 3.2 0 0 0 0 6.4h5a3.2 3.2 0 0 1 0 6.4H6"/></svg>',
+  eventos:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="17" rx="2"/><path d="M8 2v6M16 2v6M3 11h18"/></svg>',
+  agregar:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>',
+  coctel:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16l-8 9z"/><path d="M12 13v6"/><path d="M8 21h8"/></svg>',
+  mocktail:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10l-1.3 18H8.3z"/><path d="M13.5 3.5L17 1"/><path d="M7.6 10h9.5"/></svg>',
+  insumo:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6M10 2v5.2L4.8 17a3 3 0 0 0 2.7 4.3h9a3 3 0 0 0 2.7-4.3L14 7.2V2"/><path d="M6.5 14h11"/></svg>',
+  proveedor:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V8l7-5 7 5v13"/><path d="M3 21h18M14 21v-6h-4v6M21 21V11l-4-3"/></svg>'
+};
+function toggleAddSheet(){S.showAddSheet=!S.showAddSheet;renderApp();}
+function addFrom(kind){
+  S.showAddSheet=false;
+  if(kind==='coctel'){S.tab='cocktails';openAddForm(false);}
+  else if(kind==='mocktail'){S.tab='mocktails';openAddForm(true);}
+  else if(kind==='insumo'){S.tab='costes';openAddInsumo();}
+  else{S.tab='costes';openAddProv();}
+}
+function buildAddSheet(){
+  const opt=(kind,label,desc)=>`<button onclick="addFrom('${kind}')" style="display:flex;align-items:center;gap:14px;width:100%;background:transparent;border:none;border-radius:8px;padding:13px 14px;text-align:left;color:${C.crema}" onmouseover="this.style.background='#1C332912'" onmouseout="this.style.background='transparent'">
+    <span style="color:#1C3329;display:inline-flex">${NAV_ICONS[kind]}</span>
+    <span style="flex:1"><span style="display:block;font-size:14px;font-weight:600">${label}</span><span style="display:block;font-size:12px;color:${C.cremaMid}">${desc}</span></span>
+  </button>`;
+  return `<div onclick="toggleAddSheet()" style="position:fixed;inset:0;background:rgba(12,28,23,.35);z-index:900;animation:fadeIn .15s ease">
+    <div onclick="event.stopPropagation()" role="dialog" aria-label="Agregar" style="position:absolute;left:12px;right:12px;bottom:calc(88px + env(safe-area-inset-bottom));max-width:420px;margin:0 auto;background:rgba(253,251,246,.82);backdrop-filter:blur(26px) saturate(1.7);-webkit-backdrop-filter:blur(26px) saturate(1.7);border:1px solid rgba(255,255,255,.6);border-radius:8px;box-shadow:0 16px 48px rgba(61,53,39,.28),inset 0 1px 0 rgba(255,255,255,.65);padding:10px;animation:pop .25s ease">
+      <p style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:${C.cremaMid};font-weight:700;padding:8px 14px 6px">¿Qué quieres agregar?</p>
+      ${opt('coctel','Cóctel','Nueva receta en el menú')}
+      ${opt('mocktail','Mocktail','Nueva receta sin alcohol')}
+      ${opt('insumo','Insumo','Ingrediente con precio de proveedor')}
+      ${opt('proveedor','Proveedor','Nueva fuente de compra')}
+    </div>
+  </div>`;
+}
+
 // ─── RENDER ───────────────────────────────────────────────
 function renderApp(){
   if(S.needToken&&!hasCowork()){document.getElementById('app').innerHTML=buildTokenGate();return;}
@@ -761,29 +811,28 @@ function renderApp(){
     </div>`;
     return;
   }
-  const header=`<header style="text-align:center;padding:52px 24px 36px;border-bottom:1px solid ${C.border}">
+  const header=`<header style="position:relative;text-align:center;padding:52px 24px 36px;border-bottom:1px solid ${C.border}">
+    <button onclick="loadFromAirtable()" title="Recargar desde Airtable" aria-label="Recargar desde Airtable" style="position:absolute;top:14px;right:16px;background:transparent;border:none;color:${C.cremaMid};font-size:17px;opacity:.55;padding:8px;line-height:1">↺</button>
     <h1 aria-label="BRUMA" style="display:flex;align-items:center;justify-content:center;gap:22px;margin-bottom:18px">
       <span style="width:clamp(52px,10vw,72px);display:block;flex-shrink:0">${BRUMI_SVG}</span>
       <span style="width:clamp(180px,44vw,260px);display:block">${NOMBRE_SVG}</span>
     </h1>
     <p style="font-size:11px;letter-spacing:0.28em;text-transform:uppercase;color:${C.ambar};font-weight:600">Menú de Experiencias Líquidas</p>
     ${divider}
-    <button onclick="loadFromAirtable()" title="Recargar desde Airtable" style="margin-top:20px;background:transparent;border:1px solid ${C.ambar}44;border-radius:6px;color:${C.ambar};padding:8px 18px;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;min-height:36px">↺ Recargar</button>
   </header>`;
   const tabs=`<nav class="top-tabs" style="display:flex;justify-content:center;border-bottom:1px solid ${C.border};max-width:880px;margin:0 auto">
-    ${[{key:'cocktails',label:'Cócteles',count:S.cocktails.length},{key:'mocktails',label:'Mocktails',count:S.mocktails.length},{key:'costes',label:'Costes',count:S.insumos.length}].map(t=>`<button onclick="switchTab('${t.key}')" role="tab" aria-selected="${S.tab===t.key}" style="background:none;border:none;border-bottom:${S.tab===t.key?`2px solid ${C.ambar}`:'2px solid transparent'};color:${S.tab===t.key?C.crema:C.cremaMid};padding:20px 36px;font-size:13px;font-weight:${S.tab===t.key?700:400};letter-spacing:0.14em;text-transform:uppercase;transition:all 0.2s;margin-bottom:-1px;min-height:60px">${t.label}<span style="margin-left:8px;font-size:11px;color:${S.tab===t.key?C.ambar:C.cremaMid+'66'};font-weight:400">${t.count}</span></button>`).join('')}
+    ${[{target:'cocktails',label:'Menú',count:S.cocktails.length+S.mocktails.length,active:S.tab==='cocktails'||S.tab==='mocktails'},{target:'costes',label:'Costes',count:S.insumos.length,active:S.tab==='costes'},{target:'eventos',label:'Planeador de eventos',count:null,active:S.tab==='eventos'}].map(t=>`<button onclick="switchTab('${t.target}')" role="tab" aria-selected="${t.active}" style="background:none;border:none;border-bottom:${t.active?`2px solid ${C.verde}`:'2px solid transparent'};color:${t.active?C.crema:C.cremaMid};padding:20px 32px;font-size:13px;font-weight:${t.active?700:400};letter-spacing:0.14em;text-transform:uppercase;transition:all 0.2s;margin-bottom:-1px;min-height:60px">${t.label}${t.count!=null?`<span style="margin-left:8px;font-size:11px;color:${t.active?C.verde:C.cremaMid+'66'};font-weight:400">${t.count}</span>`:''}</button>`).join('')}
   </nav>`;
-  const main=`<main style="max-width:880px;margin:0 auto;padding:0 24px">${buildSearchBar()}${S.tab==='cocktails'?buildCocktailsTab():S.tab==='mocktails'?buildMocktailsTab():buildCostesTab()}</main>`;
+  const main=`<main style="max-width:880px;margin:0 auto;padding:0 24px">${S.tab==='eventos'?'':buildSearchBar()}${S.tab==='cocktails'?buildCocktailsTab():S.tab==='mocktails'?buildMocktailsTab():S.tab==='costes'?buildCostesTab():buildEventosTab()}</main>`;
   const footer=`<footer style="max-width:880px;margin:72px auto 0;padding:0 24px"><div style="border-top:1px solid ${C.border};padding-top:30px;text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:14px"><div style="height:1px;width:36px;background:linear-gradient(to right,transparent,${C.ambar}55)"></div><div style="width:3px;height:3px;border-radius:50%;background:${C.ambar};opacity:.5"></div><div style="height:1px;width:36px;background:linear-gradient(to left,transparent,${C.ambar}55)"></div></div><p style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:${C.cremaMid};margin-bottom:24px">Bruma · Coctelería · Mocktails · Experiencias</p>${!hasCowork()?`<button onclick="clearToken()" style="background:transparent;border:none;color:${C.cremaMid};font-size:11px;letter-spacing:0.1em;text-transform:uppercase;text-decoration:underline;margin-bottom:20px">Cambiar token de Airtable</button>`:''}<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;padding-top:20px;border-top:1px solid ${C.border}">${NIVELES.map(n=>`<div style="display:flex;align-items:center;gap:8px">${nivelBadge(n.value)}<span style="font-size:12px;color:${C.cremaMid}">${esc(n.desc)}</span></div>`).join('')}</div></div></footer>`;
-  const NAV_ICONS={
-    cocktails:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16l-8 9z"/><path d="M12 13v6"/><path d="M8 21h8"/></svg>',
-    mocktails:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10l-1.3 18H8.3z"/><path d="M13.5 3.5L17 1"/><path d="M7.6 10h9.5"/></svg>',
-    costes:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M17 6H9.5a3.2 3.2 0 0 0 0 6.4h5a3.2 3.2 0 0 1 0 6.4H6"/></svg>'
-  };
-  const bottomNav=`<nav class="bottom-nav" aria-label="Navegación">${[
-    {key:'cocktails',label:'Cócteles'},{key:'mocktails',label:'Mocktails'},{key:'costes',label:'Costes'}
-  ].map(t=>`<button onclick="switchTab('${t.key}')" class="${S.tab===t.key?'active':''}" aria-current="${S.tab===t.key}">${NAV_ICONS[t.key]}${t.label}</button>`).join('')}</nav>`;
-  document.getElementById('app').innerHTML=header+tabs+main+footer+bottomNav+(S.editing?buildEditModal():'')+(S.confirmDel?buildConfirmModal():'')+(S.showAddInsumo?buildInsumoModal():'')+(S.showAddProv?buildProvModal():'');
+  const isMenu=S.tab==='cocktails'||S.tab==='mocktails';
+  const bottomNav=`<nav class="bottom-nav" aria-label="Navegación">
+    <button onclick="switchTab('cocktails')" class="${isMenu?'active':''}" aria-current="${isMenu}">${NAV_ICONS.menu}Menú</button>
+    <button onclick="switchTab('costes')" class="${S.tab==='costes'?'active':''}" aria-current="${S.tab==='costes'}">${NAV_ICONS.costes}Costes</button>
+    <button onclick="switchTab('eventos')" class="${S.tab==='eventos'?'active':''}" aria-current="${S.tab==='eventos'}">${NAV_ICONS.eventos}Eventos</button>
+    <button onclick="toggleAddSheet()" class="${S.showAddSheet?'active':''}" aria-expanded="${S.showAddSheet}">${NAV_ICONS.agregar}Agregar</button>
+  </nav>`;
+  document.getElementById('app').innerHTML=header+tabs+main+footer+bottomNav+(S.editing?buildEditModal():'')+(S.confirmDel?buildConfirmModal():'')+(S.showAddInsumo?buildInsumoModal():'')+(S.showAddProv?buildProvModal():'')+(S.showAddSheet?buildAddSheet():'');
 }
 
 // ─── ACTIONS ─────────────────────────────────────────────
