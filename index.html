@@ -159,7 +159,8 @@ const S={
   insumos:[], provMap:{}, costesOk:true,
   fCNivel:'todos', fCTipo:'todos', costGroup:6, costExp:{},
   search:'', showFilters:false, showAddInsumo:false, showAddProv:false, insumoForm:null, provForm:null,
-  showAddSheet:false
+  showAddSheet:false,
+  ev:{svc:'lab',tier:'halo',ownerH:120000,form:null,selected:null,licorFilter:null,result:null,expanded:false,shopOpen:false}
 };
 
 // ─── TOAST ────────────────────────────────────────────────
@@ -485,12 +486,350 @@ function buildMenuSwitch(){
   const seg=(key,label,n)=>{const a=S.tab===key;return `<button onclick="switchTab('${key}')" aria-selected="${a}" style="flex:1;padding:10px 16px;border-radius:8px;border:none;background:${a?'#1C3329':'transparent'};color:${a?'#F5E9DA':C.cremaMid};font-size:12px;letter-spacing:0.1em;text-transform:uppercase;font-weight:${a?700:400};min-height:44px;transition:all .2s">${label} <span style="opacity:.6;font-weight:400">${n}</span></button>`;};
   return `<div role="tablist" style="display:flex;gap:4px;background:${C.surface};border:1px solid ${C.border};border-radius:8px;padding:4px;margin-top:16px">${seg('cocktails','Cócteles',S.cocktails.length)}${seg('mocktails','Mocktails',S.mocktails.length)}</div>`;
 }
+// ─── PLANEADOR DE EVENTOS (portado del cotizador Bruma) ───
+const VERDE_SEL='#1C3329';
+const EV={
+  MARGIN:.30,HELPER:90000,MATRL_PP:3500,ICE_5KG:22000,SETUP:60000,EQUIP:200000,OVH:0.15,
+  TRANS:{norte:70000,centro:55000,sur:90000,externo:250000},
+  MIN:{lab:{halo:700000,ambar:1200000,prueba:700000},enc:{halo:1500000,ambar:2500000,prueba:1500000}},
+  BENCH:{lab:{halo:{min:80000,max:140000,label:'Taller básico de coctelería, Bogotá'},ambar:{min:120000,max:200000,label:'Taller premium de coctelería, Bogotá'}},
+         enc:{halo:{min:65000,max:130000,label:'Bar móvil básico, Bogotá'},ambar:{min:100000,max:200000,label:'Bar móvil premium, Bogotá'}}},
+  DEFS:{lab:{participants:10,hours:2,dpp:2,atClient:true,zone:'norte',needsHelper:false},
+        enc:{guests:40,hours:3,bpp:6,modality:'openbar',zone:'norte',needsHelper:false,includeEquip:true}}
+};
+function evVF(n,sv){
+  if(sv==='lab'){if(n<=8)return 1;if(n<=15)return .97;if(n<=25)return .94;return .91;}
+  if(n<=25)return 1;if(n<=50)return .95;if(n<=80)return .90;if(n<=120)return .85;return .80;
+}
+function evAllDrinks(){return [...S.cocktails.map(d=>({...d,_cat:'cocktail'})),...S.mocktails.map(d=>({...d,_cat:'mocktail'}))];}
+function evUnit(d){const r=drinkCost(d,1);return {cost:Math.round(r.costoInsumos),estimado:r.estimado};}
+function evState(){
+  const e=S.ev;
+  if(!e.form)e.form={...EV.DEFS[e.svc]};
+  if(e.selected===null)e.selected=evAllDrinks().map(d=>d.id);
+  return e;
+}
+function evShopping(ids,total){
+  const items=ids.map(id=>evAllDrinks().find(d=>d.id===id)).filter(Boolean);
+  if(!items.length)return {total:0,items:[]};
+  const base=Math.floor(total/items.length),rem=total-base*items.length;
+  const list=items.map((it,i)=>{
+    const u=evUnit(it);
+    return {...it,servings:base+(i<rem?1:0),unitCost:u.cost,estimado:u.estimado};
+  });
+  return {total:Math.round(list.reduce((s,it)=>s+it.servings*it.unitCost,0)),items:list};
+}
+function evCalcular(){
+  const e=evState(),f=e.form;
+  const isLab=e.svc==='lab';
+  const n=isLab?f.participants:f.guests;
+  const td=isLab?n*f.dpp:Math.round(n*f.bpp*(f.modality==='consumo'?.72:1));
+  const sh=evShopping(e.selected,td);
+  const vf=evVF(n,e.svc),ib=sh.total,ic=Math.round(ib*vf),ss=ib-ic;
+  const th=isLab?f.hours+(f.atClient?2:1.5):f.hours+2;
+  const tc=Math.round(th*e.ownerH);
+  const hc=f.needsHelper?EV.HELPER:0;
+  let sub,extra={};
+  if(isLab){
+    const mc=n*EV.MATRL_PP,tr=f.atClient?EV.TRANS[f.zone]:0;
+    sub=ic+tc+hc+mc+tr;extra={materialCost:mc,transportCost:tr};
+  }else{
+    const nb=Math.ceil(n*f.hours*.15/5),icost=nb*EV.ICE_5KG;
+    const tr=EV.TRANS[f.zone],eq=f.includeEquip?EV.EQUIP:0;
+    sub=ic+tc+hc+icost+tr+EV.SETUP+eq;extra={iceBags:nb,iceCost:icost,transportCost:tr,equipCost:eq};
+  }
+  const cost=Math.round(sub*(1+EV.OVH));
+  const pc=Math.round(cost*(1+EV.MARGIN));
+  const price=Math.max(pc,EV.MIN[e.svc][e.tier]);
+  const ppp=Math.round(price/n),profit=price-cost;
+  const bench=EV.BENCH[e.svc][e.tier==='ambar'?'ambar':'halo'];
+  const pos=ppp<bench.min?'below':ppp>bench.max?'above':'ok';
+  const reales=sh.items.filter(it=>!it.estimado).length;
+  return {n,td,sh,vf,ingredBase:ib,ingredC:ic,scaleSaving:ss,totalHours:th,timeCost:tc,helperCost:hc,...extra,subtotal:sub,totalCost:cost,price,ppp,profit,bench,pos,appliedMin:price>pc,reales};
+}
+// Handlers
+function evSvc(v){const e=S.ev;e.svc=v;e.form={...EV.DEFS[v]};e.result=null;renderApp();}
+function evTier(v){S.ev.tier=v;S.ev.result=null;renderApp();}
+function evForm(k,v){evState().form[k]=v;S.ev.result=null;renderApp();}
+function evNum(k,v){const n=parseFloat(v);if(!isNaN(n)){evState().form[k]=n;S.ev.result=null;renderApp();}}
+function evOwnerH(v){const n=parseFloat(v);if(!isNaN(n)&&n>0){S.ev.ownerH=n;S.ev.result=null;renderApp();}}
+function evTog(k){const f=evState().form;f[k]=!f[k];S.ev.result=null;renderApp();}
+function evLicor(v){S.ev.licorFilter=v||null;renderApp();}
+function evDrink(id){
+  const e=evState();
+  const has=e.selected.includes(id);
+  if(has&&e.selected.length===1){showToast('Debe quedar al menos un trago',true);return;}
+  e.selected=has?e.selected.filter(x=>x!==id):[...e.selected,id];
+  e.result=null;renderApp();
+}
+function evSecAll(idsCsv,sel){
+  const e=evState(),ids=idsCsv.split(',').filter(Boolean);
+  if(sel){e.selected=[...new Set([...e.selected,...ids])];}
+  else{const next=e.selected.filter(id=>!ids.includes(id));e.selected=next.length?next:[ids[0]];}
+  e.result=null;renderApp();
+}
+function evCalcBtn(){
+  const e=evState(),n=e.svc==='lab'?e.form.participants:e.form.guests;
+  if(!n||n<3){showToast('Mínimo 3 personas',true);return;}
+  if(!e.selected.length){showToast('Selecciona al menos un trago',true);return;}
+  e.result=evCalcular();e.expanded=false;e.shopOpen=false;renderApp();
+  setTimeout(()=>document.getElementById('ev-result')?.scrollIntoView({behavior:'smooth',block:'start'}),60);
+}
+function evReset(){const e=S.ev;e.form={...EV.DEFS[e.svc]};e.selected=evAllDrinks().map(d=>d.id);e.licorFilter=null;e.result=null;e.expanded=false;e.shopOpen=false;renderApp();}
+function evExp(){S.ev.expanded=!S.ev.expanded;renderApp();}
+function evShop(){S.ev.shopOpen=!S.ev.shopOpen;renderApp();}
+// UI helpers
+const evPill=(a)=>`padding:8px 16px;border-radius:8px;font-size:12px;letter-spacing:0.06em;font-weight:${a?700:400};border:1.5px solid ${a?VERDE_SEL:C.border};background:${a?VERDE_SEL:'transparent'};color:${a?'#F5E9DA':C.cremaMid};transition:all .15s;min-height:38px`;
+function evLabel(t,sub){return `<div style="margin-bottom:10px"><div style="${lSt};margin-bottom:0">${t}</div>${sub?`<div style="font-size:12px;color:${C.cremaMid};margin-top:3px;line-height:1.4">${sub}</div>`:''}</div>`;}
+function evNumCard(label,sub,key,val,min,max,step,unit,fn){
+  return `<div style="background:${C.bg};border:1px solid ${C.border};border-radius:8px;padding:14px 16px">
+    <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:${C.cremaMid};font-weight:700;margin-bottom:${sub?3:8}px">${label}</div>
+    ${sub?`<div style="font-size:12px;color:${C.cremaMid};opacity:.8;margin-bottom:8px">${sub}</div>`:''}
+    <div style="display:flex;align-items:baseline;gap:6px">
+      <input type="number" value="${val}" min="${min}" ${max?`max="${max}"`:''} step="${step||1}" onchange="${fn||`evNum('${key}',this.value)`}" style="background:transparent;border:none;color:${C.crema};font-size:26px;font-weight:700;width:100%;padding:0;outline:none"/>
+      ${unit?`<span style="font-size:12px;color:${C.cremaMid};flex-shrink:0">${unit}</span>`:''}
+    </div>
+  </div>`;
+}
+function evToggleCtl(label,checked,key){
+  return `<button onclick="evTog('${key}')" role="switch" aria-checked="${checked}" style="display:flex;align-items:center;gap:10px;background:transparent;border:none;padding:4px 0;text-align:left">
+    <span style="width:42px;height:24px;border-radius:12px;position:relative;flex-shrink:0;background:${checked?VERDE_SEL:C.surfaceAlt};border:1px solid ${checked?VERDE_SEL:C.border};transition:background .2s;display:inline-block">
+      <span style="width:18px;height:18px;border-radius:9px;background:${C.bg};position:absolute;top:2px;left:${checked?20:2}px;transition:left .2s;box-shadow:0 1px 3px rgba(61,53,39,.3)"></span>
+    </span>
+    <span style="color:${C.crema};font-size:13px">${label}</span>
+  </button>`;
+}
+function evDrinkSelector(){
+  const e=evState();
+  const all=evAllDrinks();
+  const licores=[...new Set(S.cocktails.flatMap(d=>d.licor||[]))].sort();
+  let visible=all;
+  if(e.licorFilter==='mocktail')visible=all.filter(d=>d._cat==='mocktail');
+  else if(e.licorFilter)visible=all.filter(d=>d._cat==='mocktail'||(d.licor||[]).includes(e.licorFilter));
+  const halo=visible.filter(d=>d.nivel!=='ambar'),ambar=visible.filter(d=>d.nivel==='ambar');
+  const chip=d=>{
+    const a=e.selected.includes(d.id);
+    const u=evUnit(d);
+    const subt=d._cat==='mocktail'?'mocktail':(d.licor||[]).join(' · ')||'cóctel';
+    return `<button onclick="evDrink('${d.id}')" style="display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:10px 14px;border-radius:8px;border:1.5px solid ${a?VERDE_SEL:C.border};background:${a?VERDE_SEL+'0D':C.bg};text-align:left;min-width:120px;transition:all .15s">
+      <span style="color:${a?VERDE_SEL:C.crema};font-size:13px;font-weight:${a?700:500}">${a?'✓ ':''}${esc(d.name)}</span>
+      <span style="font-size:11px;color:${C.cremaMid}">${esc(subt)} · ${fmtCOP(u.cost)}/u <span title="${u.estimado?'Costo estimado por nivel':'Costo real de proveedores'}" style="color:${u.estimado?C.pruebaFg:C.haloFg}">●</span></span>
+    </button>`;
+  };
+  const section=(titulo,items,color)=>{
+    if(!items.length)return '';
+    const selN=items.filter(d=>e.selected.includes(d.id)).length;
+    const ids=items.map(d=>d.id).join(',');
+    const sBtn=`background:transparent;border:1px solid ${C.border};border-radius:8px;padding:4px 12px;font-size:11px;color:${C.cremaMid};min-height:30px`;
+    return `<div style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:${color};font-weight:700">${titulo}</span>
+          <span style="font-size:12px;color:${C.cremaMid}">${selN} / ${items.length}</span>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="evSecAll('${ids}',true)" style="${sBtn}">Todos</button>
+          <button onclick="evSecAll('${ids}',false)" style="${sBtn}">Ninguno</button>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">${items.map(chip).join('')}</div>
+    </div>`;
+  };
+  const filtros=[{v:'',l:'Todos'},{v:'mocktail',l:'Mocktails'},...licores.map(l=>({v:l,l:capTxt(l)}))];
+  return `<div style="margin-top:22px">
+    ${evLabel('Tragos del evento','Filtra por base y elige las preparaciones incluidas. ● verde = costo real de proveedores.')}
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">${filtros.map(o=>`<button onclick="evLicor('${esc(o.v)}')" style="${evPill(e.licorFilter===(o.v||null))}">${o.l}</button>`).join('')}</div>
+    ${section('Halo',halo,C.haloFg)}
+    ${section('Ámbar',ambar,C.ambarFg)}
+    ${!halo.length&&!ambar.length?`<p style="font-size:13px;color:${C.cremaMid}">Sin resultados para este filtro.</p>`:''}
+  </div>`;
+}
+function evResults(){
+  const e=S.ev,r=e.result,f=e.form;
+  const isLab=e.svc==='lab';
+  const sl=r.vf<1?`−${Math.round((1-r.vf)*100)}% ingredientes · ${r.n} personas`:null;
+  const priceCard=`<div id="ev-result" style="background:${C.surface};border:2px solid ${C.ambarSolid}66;border-radius:8px;padding:24px 22px;scroll-margin-top:16px">
+    <div style="display:flex;gap:18px;flex-wrap:wrap;justify-content:space-between">
+      <div style="min-width:200px;flex:1">
+        <div style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:${C.cremaMid};margin-bottom:8px">${isLab?'Laboratorio':'Encuentro'} · ${e.tier==='halo'?'Halo':'Ámbar'}</div>
+        <div style="font-family:${fontT};font-size:clamp(34px,7vw,44px);color:${C.ambar};line-height:1;margin-bottom:8px">${fmtCOP(r.price)}</div>
+        <div><span style="color:${C.crema};font-size:18px;font-weight:600">${fmtCOP(r.ppp)}</span><span style="color:${C.cremaMid};font-size:13px;margin-left:8px">/ persona</span></div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px">
+          ${sl?`<span style="background:${C.halobg};border:1px solid ${C.haloFg}44;border-radius:8px;padding:3px 10px;color:${C.haloFg};font-size:12px;font-weight:600">↓ ${sl}</span>`:''}
+          ${r.appliedMin?`<span style="background:${C.ambarBg};border:1px solid ${C.ambar}44;border-radius:8px;padding:3px 10px;color:${C.ambarFg};font-size:12px">Mínimo de servicio aplicado</span>`:''}
+          <span style="background:${r.reales===r.sh.items.length?C.halobg:C.ambarBg};border:1px solid ${r.reales===r.sh.items.length?C.haloFg+'44':C.ambar+'44'};border-radius:8px;padding:3px 10px;color:${r.reales===r.sh.items.length?C.haloFg:C.ambarFg};font-size:12px">${r.reales}/${r.sh.items.length} tragos con costo real</span>
+        </div>
+        <div style="font-size:12px;color:${C.cremaMid};margin-top:10px">${r.td} ${isLab?'preparaciones':'tragos'}${r.helperCost?' · +1 ayudante':''}${!isLab?` · ${r.iceBags} bolsas de hielo`:''}</div>
+      </div>
+      <div style="background:${C.bg};border:1px solid ${C.border};border-radius:8px;padding:16px 18px;min-width:190px;flex-shrink:0">
+        <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:${C.cremaMid};font-weight:700;margin-bottom:8px">Tiempo comprometido</div>
+        <div style="color:${C.crema};font-size:25px;font-weight:700;margin-bottom:2px">${r.totalHours.toFixed(1)} h</div>
+        <div style="font-size:12px;color:${C.cremaMid};line-height:1.5;margin-bottom:14px">${isLab?`${f.hours}h taller + ${(r.totalHours-f.hours).toFixed(1)}h prep`:`${f.hours}h servicio + 2h montaje`}</div>
+        <div style="border-top:1px solid ${C.border};padding-top:12px">
+          <div style="font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:${C.cremaMid};font-weight:700;margin-bottom:4px">Tu ganancia</div>
+          <div style="color:${C.verde};font-size:20px;font-weight:700">${fmtCOP(r.profit)}</div>
+          <div style="font-size:12px;color:${C.cremaMid};margin-top:3px">${fmtCOP(Math.round(r.profit/r.totalHours))} / hora</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  const ranges=[{label:'Precio base',mult:1+EV.MARGIN*.5,note:'Clientes frecuentes'},{label:'Precio Bruma',mult:1+EV.MARGIN,note:'Precio estándar',accent:true},{label:'Precio exclusivo',mult:1+EV.MARGIN*1.5,note:'Urgente / especial'}]
+    .map(p=>{const px=Math.max(Math.round(r.totalCost*p.mult),EV.MIN[e.svc][e.tier]);
+      return `<div style="background:${p.accent?C.ambarBg:C.bg};border:1px solid ${p.accent?C.ambar+'66':C.border};border-radius:8px;padding:13px 12px;text-align:center">
+        <div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:${p.accent?C.ambarFg:C.cremaMid};margin-bottom:6px">${p.label}</div>
+        <div style="font-family:${fontT};font-size:17px;color:${p.accent?C.ambar:C.crema};margin-bottom:3px">${fmtCOP(px)}</div>
+        <div style="font-size:12px;color:${C.cremaMid}">${fmtCOP(Math.round(px/r.n))} / p.</div>
+        <div style="font-size:11px;color:${C.cremaMid};margin-top:3px">${p.note}</div>
+      </div>`;}).join('');
+  const rangesCard=`<div style="background:${C.surface};border:1px solid ${C.border};border-radius:8px;padding:18px 20px">
+    <div style="${lSt}">Rangos de cotización</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:10px">${ranges}</div>
+  </div>`;
+  const sc=r.bench.max*1.7,lP=r.bench.min/sc*100,rP=r.bench.max/sc*100,mP=Math.min(96,Math.max(4,r.ppp/sc*100));
+  const posOk=r.pos==='ok',posColor=posOk?C.haloFg:r.pos==='below'?C.ambarFg:C.deleteFg;
+  const posBg=posOk?C.halobg:r.pos==='below'?C.ambarBg:C.deleteBg;
+  const posMsg=posOk?`✓ ${fmtCOP(r.ppp)}/persona — dentro del rango competitivo.`:r.pos==='below'?'↓ Precio por debajo del mercado. Considera ajustar al alza.':'↑ Precio sobre el rango típico. Comunica el diferencial Bruma.';
+  const posCard=`<div style="background:${C.surface};border:1px solid ${C.border};border-radius:8px;padding:18px 20px">
+    <div style="${lSt}">Posicionamiento — ${esc(r.bench.label)}</div>
+    <div style="font-size:12px;color:${C.cremaMid};margin:6px 0 16px">Rango de mercado: <strong style="color:${C.crema}">${fmtCOP(r.bench.min)} – ${fmtCOP(r.bench.max)}</strong> / persona</div>
+    <div style="position:relative;height:8px;background:${C.surfaceAlt};border-radius:4px;margin-bottom:8px">
+      <div style="position:absolute;left:${lP}%;width:${rP-lP}%;height:100%;background:${C.verde}55;border-radius:4px"></div>
+      <div style="position:absolute;left:${mP}%;top:50%;transform:translate(-50%,-50%);width:18px;height:18px;border-radius:50%;background:${posOk?VERDE_SEL:C.ambarSolid};border:3px solid ${C.surface}"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:${C.cremaMid};margin-bottom:12px"><span>Por debajo</span><span>Competitivo</span><span>Premium</span></div>
+    <div style="padding:10px 14px;border-radius:8px;font-size:12px;background:${posBg};color:${posColor}">${posMsg}</div>
+  </div>`;
+  const shopRows=r.sh.items.map((it,i)=>`<div style="padding:12px 0;${i<r.sh.items.length-1?`border-bottom:1px solid ${C.border}`:''}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+      <div style="flex:1;min-width:0">
+        <span style="color:${C.crema};font-size:13px;font-weight:600">${esc(it.name)}</span>
+        <span style="font-size:12px;color:${C.cremaMid};margin-left:8px">${it.servings} u × ${fmtCOP(it.unitCost)}${it.estimado?' (est.)':''}</span>
+      </div>
+      <span style="color:${C.crema};font-size:13px;font-weight:700;flex-shrink:0">${fmtCOP(Math.round(it.servings*it.unitCost))}</span>
+    </div>
+    ${it.ingredientes&&it.ingredientes.length?`<div style="font-size:12px;color:${C.cremaMid};margin-top:5px;line-height:1.6">${esc(it.ingredientes.join(' · '))}</div>`:''}
+  </div>`).join('');
+  const rowSt=(l,v,o={})=>`<div style="display:flex;justify-content:space-between;padding:${o.t?11:8}px 0;${o.d?`border-bottom:1px solid ${C.border}`:''}">
+    <span style="font-size:13px;color:${o.b||o.t?C.crema:C.cremaMid}">${l}</span>
+    <span style="font-size:${o.t?15:13}px;font-weight:${o.b||o.t||o.a||o.s?700:400};color:${o.s?C.verde:o.a?C.ambar:C.crema}">${v}</span>
+  </div>`;
+  const shopCard=`<div style="background:${C.surface};border:1px solid ${C.border};border-radius:8px;overflow:hidden">
+    <button onclick="evShop()" style="width:100%;background:none;border:none;color:${C.crema};padding:15px 20px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center">
+      <span>Recetas del evento — ${fmtCOP(r.ingredBase)}</span><span style="font-size:12px;color:${C.cremaMid}">${e.shopOpen?'▲ cerrar':'▼ ver'}</span>
+    </button>
+    ${e.shopOpen?`<div style="padding:4px 20px 18px;border-top:1px solid ${C.border}">
+      <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:${C.ambar};font-weight:700;margin:12px 0 2px">Distribución · ${r.td} unidades</div>
+      ${shopRows}
+      <div style="border-top:1px solid ${C.border};margin-top:8px;padding-top:6px">
+        ${rowSt(`Costo base (${r.td} unidades)`,fmtCOP(r.ingredBase),{b:true,d:true})}
+        ${r.scaleSaving>0?rowSt(`Rendimiento por volumen −${Math.round((1-r.vf)*100)}%`,'−'+fmtCOP(r.scaleSaving),{s:true,d:true}):''}
+        ${rowSt('Costo neto de bebidas',fmtCOP(r.ingredC),{t:true})}
+      </div>
+    </div>`:''}
+  </div>`;
+  const breakRows=isLab
+    ?rowSt(`Ingredientes — ${r.td} preparaciones`,fmtCOP(r.ingredC),{d:true})
+      +rowSt(`Tiempo: ${r.totalHours.toFixed(1)}h × ${fmtCOP(e.ownerH)}`,fmtCOP(r.timeCost),{d:true})
+      +rowSt(`Materiales — ${r.n} × ${fmtCOP(EV.MATRL_PP)}`,fmtCOP(r.materialCost),{d:true})
+      +(r.helperCost?rowSt('Ayudante',fmtCOP(r.helperCost),{d:true}):'')
+      +(r.transportCost?rowSt('Transporte',fmtCOP(r.transportCost),{d:true}):'')
+    :rowSt(`Ingredientes — ${r.td} tragos`,fmtCOP(r.ingredC),{d:true})
+      +rowSt(`Tiempo: ${r.totalHours.toFixed(1)}h × ${fmtCOP(e.ownerH)}`,fmtCOP(r.timeCost),{d:true})
+      +rowSt(`Hielo — ${r.iceBags} bolsas`,fmtCOP(r.iceCost),{d:true})
+      +rowSt('Montaje y desmontaje',fmtCOP(EV.SETUP),{d:true})
+      +(r.equipCost?rowSt('Cristalería y barra',fmtCOP(r.equipCost),{d:true}):'')
+      +(r.helperCost?rowSt('Ayudante',fmtCOP(r.helperCost),{d:true}):'')
+      +rowSt('Transporte',fmtCOP(r.transportCost),{d:true});
+  const metrics=[['Por persona',fmtCOP(r.ppp)],['Por trago',fmtCOP(Math.round(r.price/r.td))],['Ganancia/hora',fmtCOP(Math.round(r.profit/r.totalHours))]]
+    .map(([l,v])=>`<div style="background:${C.bg};border:1px solid ${C.border};border-radius:8px;padding:10px;text-align:center"><div style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:${C.cremaMid};margin-bottom:5px">${l}</div><div style="color:${C.crema};font-size:14px;font-weight:700">${v}</div></div>`).join('');
+  const breakCard=`<div style="background:${C.surface};border:1px solid ${C.border};border-radius:8px;overflow:hidden">
+    <button onclick="evExp()" style="width:100%;background:none;border:none;color:${C.crema};padding:15px 20px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center">
+      <span>Desglose de costos</span><span style="font-size:12px;color:${C.cremaMid}">${e.expanded?'▲ cerrar':'▼ ver'}</span>
+    </button>
+    ${e.expanded?`<div style="padding:8px 20px 18px;border-top:1px solid ${C.border}">
+      ${breakRows}
+      <div style="border-top:1px solid ${C.border};margin-top:8px;padding-top:4px">
+        ${rowSt('Subtotal',fmtCOP(r.subtotal),{d:true})}
+        ${rowSt('Overhead — 15%',fmtCOP(r.totalCost-r.subtotal),{d:true})}
+        ${rowSt('Costo total',fmtCOP(r.totalCost),{b:true,d:true})}
+        ${rowSt('Margen Bruma — 30%',fmtCOP(r.profit),{a:true,d:true})}
+        ${rowSt('Precio al cliente',fmtCOP(r.price),{t:true})}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px">${metrics}</div>
+    </div>`:''}
+  </div>`;
+  return `<div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">${priceCard}${rangesCard}${posCard}${shopCard}${breakCard}
+    <p style="font-size:12px;color:${C.cremaMid};text-align:center;margin-top:4px">Costos calculados con los precios de proveedores de la pestaña Costes · Margen 30% · Overhead 15%</p>
+  </div>`;
+}
 function buildEventosTab(){
-  return `<div style="animation:fadeIn .3s ease;text-align:center;padding:70px 20px 40px">
-    <div style="width:88px;margin:0 auto 24px;opacity:.9">${BRUMI_SVG}</div>
-    <h2 style="font-family:${fontT};font-size:26px;color:${C.crema};font-weight:400;margin-bottom:12px">Planeador de eventos</h2>
-    <p style="font-size:15px;color:${C.cremaMid};line-height:1.7;max-width:400px;margin:0 auto 28px">Muy pronto: aquí armaremos Laboratorios y Encuentros — invitados, selección de tragos del menú y costeo automático del evento completo.</p>
-    <span style="font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:${C.haloFg};background:${C.halobg};border:1px solid ${C.haloFg}33;border-radius:8px;padding:7px 16px">✦ En construcción</span>
+  const e=evState(),f=e.form;
+  const isLab=e.svc==='lab';
+  const svcCard=(k,icon,label,desc)=>{const a=e.svc===k;
+    return `<button onclick="evSvc('${k}')" style="background:${a?VERDE_SEL+'0D':C.surface};border:${a?`2px solid ${VERDE_SEL}`:`1px solid ${C.border}`};border-radius:8px;padding:16px 18px;text-align:left;transition:all .15s">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span style="font-size:15px;color:${a?VERDE_SEL:C.cremaMid}">${icon}</span>
+        <span style="color:${a?VERDE_SEL:C.crema};font-size:15px;font-weight:700">${label}</span>
+      </div>
+      <div style="font-size:12px;color:${C.cremaMid};line-height:1.5">${desc}</div>
+    </button>`;};
+  const tiers=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px">
+    <div style="display:flex;gap:4px;background:${C.surface};border:1px solid ${C.border};border-radius:8px;padding:4px">
+      ${['halo','ambar'].map(t=>{const a=e.tier===t;return `<button onclick="evTier('${t}')" style="padding:8px 22px;border-radius:8px;border:none;font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:${a?700:400};background:${a?VERDE_SEL:'transparent'};color:${a?'#F5E9DA':C.cremaMid};transition:all .15s">${t==='halo'?'Halo':'Ámbar'}</button>`;}).join('')}
+    </div>
+    <span style="font-size:12px;color:${C.cremaMid}">${e.tier==='halo'?'Servicio de entrada · ingredientes accesibles':'Servicio premium · ingredientes de alta calidad'}</span>
+  </div>`;
+  const labForm=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px">
+      ${evNumCard('Participantes','','participants',f.participants,3,30,1,'')}
+      ${evNumCard('Duración','','hours',f.hours,1,6,.5,'horas')}
+      ${evNumCard('Bebidas por persona','','dpp',f.dpp,1,6,1,'')}
+      ${evNumCard('Tu valor hora','','ownerH',e.ownerH,30000,300000,5000,'COP','evOwnerH(this.value)')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:16px">
+      <div>${evLabel('¿Dónde se realiza?')}
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <button onclick="evForm('atClient',true)" style="${evPill(f.atClient)}">Espacio del cliente</button>
+          <button onclick="evForm('atClient',false)" style="${evPill(!f.atClient)}">Tu espacio</button>
+        </div>
+      </div>
+      ${f.atClient?`<div>${evLabel('Zona','Externo: Chía, Cajicá, Sopó…')}
+        <div style="display:flex;flex-wrap:wrap;gap:8px">${['norte','centro','sur','externo'].map(z=>`<button onclick="evForm('zone','${z}')" style="${evPill(f.zone===z)}">${capTxt(z)}</button>`).join('')}</div>
+      </div>`:''}
+    </div>
+    ${evToggleCtl(`Incluir ayudante (${fmtCOP(EV.HELPER)} por sesión)`,f.needsHelper,'needsHelper')}`;
+  const encForm=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px">
+      ${evNumCard('Invitados','','guests',f.guests,6,500,1,'')}
+      ${evNumCard('Duración','','hours',f.hours,1,10,.5,'horas')}
+      ${evNumCard('Bebidas por persona','','bpp',f.bpp,1,20,1,'')}
+      ${evNumCard('Tu valor hora','','ownerH',e.ownerH,30000,300000,5000,'COP','evOwnerH(this.value)')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:16px">
+      <div>${evLabel('Modalidad')}
+        <div style="display:flex;flex-wrap:wrap;gap:8px">${[['openbar','Open Bar'],['consumo','Por Consumo'],['paquete','Paquete']].map(([v,l])=>`<button onclick="evForm('modality','${v}')" style="${evPill(f.modality===v)}">${l}</button>`).join('')}</div>
+      </div>
+      <div>${evLabel('Zona','Externo: Chía, Cajicá, Sopó…')}
+        <div style="display:flex;flex-wrap:wrap;gap:8px">${['norte','centro','sur','externo'].map(z=>`<button onclick="evForm('zone','${z}')" style="${evPill(f.zone===z)}">${capTxt(z)}</button>`).join('')}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:24px;flex-wrap:wrap">
+      ${evToggleCtl(`Incluir ayudante (${fmtCOP(EV.HELPER)})`,f.needsHelper,'needsHelper')}
+      ${evToggleCtl('Incluir cristalería y barra',f.includeEquip,'includeEquip')}
+    </div>`;
+  return `<div style="animation:fadeIn .3s ease;padding-top:20px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:16px">
+      ${svcCard('lab','⬡','Laboratorio','Taller: los clientes aprenden a preparar los cócteles elegidos')}
+      ${svcCard('enc','◈','Encuentro','Bar móvil en el lugar del cliente')}
+    </div>
+    ${tiers}
+    <div style="background:${C.surface};border:1px solid ${C.border};border-radius:8px;padding:22px">
+      ${isLab?labForm:encForm}
+      ${evDrinkSelector()}
+      <div style="border-top:1px solid ${C.border};margin-top:20px;padding-top:16px;display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="evReset()" style="background:transparent;color:${C.cremaMid};border:1px solid ${C.border};border-radius:8px;padding:11px 18px;font-size:12px;min-height:44px">↺ Reiniciar</button>
+        <button onclick="evCalcBtn()" style="background:${C.ambarSolid};color:${C.crema};border:none;border-radius:8px;padding:11px 30px;font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;min-height:44px">Calcular</button>
+      </div>
+    </div>
+    ${e.result?evResults():''}
   </div>`;
 }
 function buildCocktailsTab(){
@@ -550,8 +889,8 @@ function parseIngLine(line){
   return {raw:String(line).trim(),name,qty,unit,qml};
 }
 
-function drinkCost(d){
-  const eficiencia=volumeEff(S.costGroup);
+function drinkCost(d,group){
+  const eficiencia=volumeEff(group??S.costGroup);
   // El insumo de nombre más largo gana ("Gin botánico" antes que "Gin")
   const cand=[...S.insumos].sort((a,b)=>(b.insumo||'').length-(a.insumo||'').length);
   const items=[];let costoInsumos=0;let matched=0;
