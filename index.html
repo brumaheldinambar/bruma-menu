@@ -597,7 +597,7 @@ function evShop(){S.ev.shopOpen=!S.ev.shopOpen;renderApp();}
 const evPill=(a)=>`padding:8px 16px;border-radius:8px;font-size:12px;letter-spacing:0.06em;font-weight:${a?700:400};border:1.5px solid ${a?VERDE_SEL:C.border};background:${a?VERDE_SEL:'transparent'};color:${a?'#F5E9DA':C.cremaMid};transition:all .15s;min-height:38px`;
 function evLabel(t,sub){return `<div style="margin-bottom:10px"><div style="${lSt};margin-bottom:0">${t}</div>${sub?`<div style="font-size:12px;color:${C.cremaMid};margin-top:3px;line-height:1.4">${sub}</div>`:''}</div>`;}
 function evNumCard(label,sub,key,val,min,max,step,unit,fn){
-  return `<div style="background:${C.bg};border:1px solid ${C.border};border-radius:8px;padding:14px 16px">
+  return `<div style="background:${C.surface};border:1px solid ${C.border};border-radius:8px;padding:14px 16px">
     <div style="font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:${C.cremaMid};font-weight:700;margin-bottom:${sub?3:8}px">${label}</div>
     ${sub?`<div style="font-size:12px;color:${C.cremaMid};opacity:.8;margin-bottom:8px">${sub}</div>`:''}
     <div style="display:flex;align-items:baseline;gap:6px">
@@ -639,7 +639,7 @@ function evMulti(kind){
         <span style="color:${selIds.length?C.crema:C.cremaMid}">${selIds.length?`${selIds.length} seleccionado${selIds.length===1?'':'s'}`:`Elegir ${label.toLowerCase()}…`}</span>
         <span style="color:${C.ambar};font-size:11px">${open?'▲':'▾'}</span>
       </button>
-      ${open?`<div onclick="event.stopPropagation()" style="position:absolute;top:calc(100% + 4px);left:0;right:0;background:${C.bg};border:1px solid ${C.border};border-radius:8px;z-index:300;box-shadow:0 12px 32px rgba(61,53,39,.2);overflow:hidden">
+      ${open?`<div onclick="event.stopPropagation()" style="position:absolute;top:calc(100% + 4px);left:0;right:0;background:${C.surface};border:1px solid ${C.border};border-radius:8px;z-index:300;box-shadow:0 12px 32px rgba(61,53,39,.2);overflow:hidden">
         <div style="display:flex;gap:6px;padding:10px;border-bottom:1px solid ${C.border};align-items:center;flex-wrap:wrap">
           <input id="ev-ms-search" value="${esc(e.msSearch)}" oninput="evMsSearch(this.value)" placeholder="Buscar por nombre o ingrediente…" style="${iSt};min-height:36px;flex:1;min-width:140px"/>
           <button onclick="evMsAll('${kind}',true)" style="${sBtn}">Todos</button>
@@ -783,7 +783,7 @@ function buildEventosTab(){
   const e=evState(),f=e.form;
   const isLab=e.svc==='lab';
   const svcCard=(k,icon,label,desc)=>{const a=e.svc===k;
-    return `<button onclick="evSvc('${k}')" style="background:${a?VERDE_SEL+'0D':C.bg};border:${a?`2px solid ${VERDE_SEL}`:`1px solid ${C.border}`};border-radius:8px;padding:14px 16px;text-align:left;transition:all .15s">
+    return `<button onclick="evSvc('${k}')" style="background:${a?VERDE_SEL+'0D':'transparent'};border:${a?`2px solid ${VERDE_SEL}`:`1px solid ${C.border}`};border-radius:8px;padding:14px 16px;text-align:left;transition:all .15s">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
         <span style="font-size:15px;color:${a?VERDE_SEL:C.cremaMid}">${icon}</span>
         <span style="color:${a?VERDE_SEL:C.crema};font-size:15px;font-weight:700">${label}</span>
@@ -791,7 +791,7 @@ function buildEventosTab(){
       <div style="font-size:12px;color:${C.cremaMid};line-height:1.5">${desc}</div>
     </button>`;};
   const tiers=`<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px">
-    <div style="display:flex;gap:4px;background:${C.bg};border:1px solid ${C.border};border-radius:8px;padding:4px">
+    <div style="display:flex;gap:4px;background:${C.surface};border:1px solid ${C.border};border-radius:8px;padding:4px">
       ${['halo','ambar'].map(t=>{const a=e.tier===t;return `<button onclick="evTier('${t}')" style="padding:8px 22px;border-radius:8px;border:none;font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:${a?700:400};background:${a?VERDE_SEL:'transparent'};color:${a?'#F5E9DA':C.cremaMid};transition:all .15s">${t==='halo'?'Halo':'Ámbar'}</button>`;}).join('')}
     </div>
     <span style="font-size:12px;color:${C.cremaMid}">${e.tier==='halo'?'Servicio de entrada · muestra los tragos Halo':'Servicio premium · muestra los tragos Ámbar'}</span>
@@ -833,7 +833,7 @@ function buildEventosTab(){
       ${evToggleCtl('Incluir cristalería y barra',f.includeEquip,'includeEquip')}
     </div>`;
   return `<div style="animation:fadeIn .3s ease;padding-top:20px">
-    <div style="background:${C.surface};border:1px solid ${C.border};border-radius:8px;padding:22px">
+    <div>
       ${evLabel('Servicio')}
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-bottom:18px">
         ${svcCard('lab','⬡','Laboratorio','Taller: los clientes aprenden a preparar los cócteles elegidos')}
