@@ -509,10 +509,10 @@ function evVF(n,sv){
 }
 function evAllDrinks(){return [...S.cocktails.map(d=>({...d,_cat:'cocktail'})),...S.mocktails.map(d=>({...d,_cat:'mocktail'}))];}
 function evUnit(d){const r=drinkCost(d,1);return {cost:Math.round(r.costoInsumos),estimado:r.estimado};}
-// El tier (Halo/Ámbar) filtra qué tragos están disponibles ('prueba' cuenta como Halo)
+// Halo muestra solo tragos Halo ('prueba' cuenta como Halo); Ámbar abre toda la carta
 function evTierDrinks(kind){
   const src=kind==='cocktail'?S.cocktails:S.mocktails;
-  return src.filter(d=>S.ev.tier==='ambar'?d.nivel==='ambar':d.nivel!=='ambar');
+  return S.ev.tier==='ambar'?src:src.filter(d=>d.nivel!=='ambar');
 }
 function evAllTier(){return [...evTierDrinks('cocktail'),...evTierDrinks('mocktail')];}
 function evState(){
@@ -659,7 +659,7 @@ function evMulti(kind){
 }
 function evDrinkSelector(){
   return `<div style="margin-top:22px">
-    ${evLabel('Tragos del evento',`Mostrando el menú ${S.ev.tier==='ambar'?'Ámbar':'Halo'} — cambia el nivel arriba para ver el otro. ● verde = costo real de proveedores.`)}
+    ${evLabel('Tragos del evento',S.ev.tier==='ambar'?'Nivel Ámbar — puedes elegir de toda la carta (Halo y Ámbar). ● verde = costo real de proveedores.':'Nivel Halo — mostrando solo los tragos Halo. ● verde = costo real de proveedores.')}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;align-items:start">
       ${evMulti('cocktail')}
       ${evMulti('mocktail')}
@@ -800,7 +800,7 @@ function buildEventosTab(){
     <div style="display:flex;gap:4px;background:${EV_TINT};border:1px solid ${C.border};border-radius:8px;padding:4px">
       ${['halo','ambar'].map(t=>{const a=e.tier===t;return `<button onclick="evTier('${t}')" style="padding:8px 22px;border-radius:8px;border:none;font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:${a?700:400};background:${a?VERDE_SEL:'transparent'};color:${a?'#F5E9DA':C.cremaMid};transition:all .15s">${t==='halo'?'Halo':'Ámbar'}</button>`;}).join('')}
     </div>
-    <span style="font-size:12px;color:${C.cremaMid}">${e.tier==='halo'?'Servicio de entrada · muestra los tragos Halo':'Servicio premium · muestra los tragos Ámbar'}</span>
+    <span style="font-size:12px;color:${C.cremaMid}">${e.tier==='halo'?'Servicio de entrada · solo tragos Halo':'Servicio premium · toda la carta disponible'}</span>
   </div>`;
   const labForm=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px">
       ${evNumCard('Participantes','','participants',f.participants,3,30,1,'')}
